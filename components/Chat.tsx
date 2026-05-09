@@ -168,16 +168,17 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
     <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column" }}>
       <style>{`
         @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes neon-glow { 0%, 100% { box-shadow: 0 0 8px #0066ff; } 50% { box-shadow: 0 0 16px #00aaff; } }
         .chat-messages::-webkit-scrollbar { width: 4px; }
         .chat-messages::-webkit-scrollbar-track { background: transparent; }
         .chat-messages::-webkit-scrollbar-thumb { background: #0066ff; border-radius: 4px; }
         .chat-input:focus { box-shadow: 0 0 8px #0066ff; outline: none; }
+        .chat-input::placeholder { color: rgba(0,102,255,0.5); }
+        .chat-input { caret-color: #0066ff; }
         .send-btn:hover:not(:disabled) { background: #00aaff !important; }
         .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #0066ff; margin: 0 2px; animation: pulse-dot 1.2s infinite; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        .chat-input::placeholder { color: rgba(0,102,255,0.5); }
-        .chat-input { caret-color: #0066ff; }
       `}</style>
 
       {/* WhatsApp flutuante */}
@@ -249,27 +250,26 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
         </div>
 
         {/* Input */}
-        <div style={{ background: "#0d1117", borderTop: "1px solid #0066ff", padding: "12px", display: "flex", gap: 8, alignItems: "center", flexShrink: 0, paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div style={{ background: "#000000", borderTop: "1px solid #0066ff", padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
           <input
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Digite sua mensagem..."
             disabled={loading}
-            style={{ flex: 1, padding: "10px 14px", background: "#000000", border: "1px solid #0066ff", borderRadius: 24, color: "#ffffff", fontSize: 14, transition: "box-shadow 200ms" }}
             onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
+            style={{ flex: 1, padding: "10px 14px", background: "#0d1117", border: "1px solid #0066ff33", borderRadius: 20, color: "#ffffff", fontSize: 14, outline: "none", opacity: loading ? 0.5 : 1, transition: "box-shadow 0.2s" }}
           />
           <button
             className="send-btn"
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
-            style={{ width: 40, height: 40, borderRadius: "50%", background: "#0066ff", border: "none", cursor: loading || !input.trim() ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 200ms", opacity: loading || !input.trim() ? 0.5 : 1, flexShrink: 0 }}>
+            style={{ width: 40, height: 40, borderRadius: "50%", background: "#0066ff", border: "none", cursor: loading || !input.trim() ? "not-allowed" : "pointer", opacity: loading || !input.trim() ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
             <svg viewBox="0 0 24 24" fill="white" width={18} height={18}>
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           </button>
         </div>
-
       </div>
     </div>
   );
