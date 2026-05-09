@@ -5,14 +5,13 @@ export interface ConversationContext {
   driverName: string | null;
   driverPhone: string | null;
   driverCity: string | null;
-  driverProfile: Classification["profile"] | null;
-  driverEmotion: Classification["emotion"] | null;
   driverTemperature: Classification["temperature"] | null;
-  driverCommitment: Classification["commitment"] | null;
+  driverPersona: Classification["persona"] | null;
   riskFlag: boolean;
   reservedNumber: string | null;
   messageCount: number;
   lastClassification: Classification | null;
+  channel: "web" | "whatsapp";
 }
 
 export function defaultContext(): ConversationContext {
@@ -20,14 +19,13 @@ export function defaultContext(): ConversationContext {
     driverName: null,
     driverPhone: null,
     driverCity: null,
-    driverProfile: null,
-    driverEmotion: null,
     driverTemperature: null,
-    driverCommitment: null,
+    driverPersona: null,
     riskFlag: false,
     reservedNumber: null,
     messageCount: 0,
     lastClassification: null,
+    channel: "web",
   };
 }
 
@@ -39,7 +37,7 @@ export async function getConversationContext(
   const { data } = await supabaseAdmin
     .from("vendor_conversations")
     .select(
-      "driver_name, driver_phone, driver_city, driver_profile, driver_emotion, driver_temperature, driver_commitment, risk_flag, reserved_number, messages"
+      "driver_name, driver_phone, driver_city, driver_temperature, driver_profile, risk_flag, reserved_number, messages, channel"
     )
     .eq("id", conversationId)
     .single();
@@ -51,10 +49,8 @@ export async function getConversationContext(
   const lastClassification: Classification | null = data.driver_temperature
     ? {
         temperature: data.driver_temperature as Classification["temperature"],
-        emotion: (data.driver_emotion ?? "coldness") as Classification["emotion"],
         risk: "none",
-        profile: (data.driver_profile ?? "intermediate") as Classification["profile"],
-        commitment: (data.driver_commitment ?? "low") as Classification["commitment"],
+        persona: (data.driver_profile ?? "direct") as Classification["persona"],
       }
     : null;
 
@@ -62,14 +58,15 @@ export async function getConversationContext(
     driverName: data.driver_name ?? null,
     driverPhone: data.driver_phone ?? null,
     driverCity: data.driver_city ?? null,
-    driverProfile: (data.driver_profile as Classification["profile"]) ?? null,
-    driverEmotion: (data.driver_emotion as Classification["emotion"]) ?? null,
-    driverTemperature: (data.driver_temperature as Classification["temperature"]) ?? null,
-    driverCommitment: (data.driver_commitment as Classification["commitment"]) ?? null,
+    driverTemperature:
+      (data.driver_temperature as Classification["temperature"]) ?? null,
+    driverPersona:
+      (data.driver_profile as Classification["persona"]) ?? null,
     riskFlag: data.risk_flag ?? false,
     reservedNumber: data.reserved_number ?? null,
     messageCount: messages.length,
     lastClassification,
+    channel: (data.channel as "web" | "whatsapp") ?? "web",
   };
 }
 
@@ -80,10 +77,8 @@ export async function updateConversationProfile(
   await supabaseAdmin
     .from("vendor_conversations")
     .update({
-      driver_profile: classification.profile,
-      driver_emotion: classification.emotion,
       driver_temperature: classification.temperature,
-      driver_commitment: classification.commitment,
+      driver_profile: classification.persona,
     })
     .eq("id", conversationId);
 }

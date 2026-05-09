@@ -1,20 +1,20 @@
 # CLUBE K-RRO — PLANOS OFICIAIS
 
-## PLATINUM
+## PLATINA
 - Valor: R$397/ano
 - Parcelamento: 6x R$66,17
 - Taxa: 94% por corrida
 - Vagas: 100 por estado
 - Numeração: 001 a 100 + [estado]P (ex: 042RSP, 015SCP)
 
-## SILVER
+## OURO
 - Valor: R$347/ano
 - Parcelamento: 6x R$57,83
 - Taxa: 92% por corrida
 - Vagas: 200 por estado
 - Numeração: 101 a 300 + [estado]S (ex: 187RSS, 201SCS)
 
-## BLACK
+## PRATA
 - Valor: R$297/ano
 - Parcelamento: 6x R$49,50
 - Taxa: 90% por corrida

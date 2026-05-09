@@ -3,87 +3,152 @@
 import { useEffect, useState } from "react";
 
 type Lot = {
-  name: "PLATINUM" | "SILVER" | "BLACK";
-  price: string;
+  name: "PLATINA" | "OURO" | "PRATA";
+  price: number;
   installment: string;
-  percent: string;
+  percent: number;
   total: number;
-  remaining: number;
+  reserved: number;
 };
 
-export default function FounderCards({
-  city,
-  onSelect,
-}: {
-  city: string;
-  onSelect: (plan: string) => void;
-}) {
+interface Props {
+  city?: string;
+  onSelect?: (lot: Lot) => void;
+}
+
+export default function FounderCards({ city, onSelect }: Props) {
   const [lots, setLots] = useState<Lot[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/lot-availability?city=${city}`)
-      .then((res) => res.json())
-      .then((data) => setLots(data))
-      .catch(() => {
-        // fallback padrão
+    async function fetchLots() {
+      try {
+        const res = await fetch(`/api/lot-availability?city=${city || ""}`);
+        const data = await res.json();
+
         setLots([
           {
-            name: "PLATINUM",
-            price: "R$397/ano",
+            name: "PLATINA",
+            price: 397,
             installment: "6x R$66,17",
-            percent: "94%",
-            total: 100,
-            remaining: 32,
+            percent: 94,
+            total: data?.platina?.total ?? 100,
+            reserved: data?.platina?.reserved ?? 0,
           },
           {
-            name: "SILVER",
-            price: "R$347/ano",
+            name: "OURO",
+            price: 347,
             installment: "6x R$57,83",
-            percent: "92%",
-            total: 200,
-            remaining: 78,
+            percent: 92,
+            total: data?.ouro?.total ?? 200,
+            reserved: data?.ouro?.reserved ?? 0,
           },
           {
-            name: "BLACK",
-            price: "R$297/ano",
+            name: "PRATA",
+            price: 297,
             installment: "6x R$49,50",
-            percent: "90%",
-            total: 300,
-            remaining: 140,
+            percent: 90,
+            total: data?.prata?.total ?? 300,
+            reserved: data?.prata?.reserved ?? 0,
           },
         ]);
-      });
+      } catch {
+        setLots([
+          { name: "PLATINA", price: 397, installment: "6x R$66,17", percent: 94, total: 100, reserved: 0 },
+          { name: "OURO", price: 347, installment: "6x R$57,83", percent: 92, total: 200, reserved: 0 },
+          { name: "PRATA", price: 297, installment: "6x R$49,50", percent: 90, total: 300, reserved: 0 },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchLots();
   }, [city]);
 
+  function getRemaining(total: number, reserved: number) {
+    return Math.max(total - reserved, 0);
+  }
+
+  function getColor(name: Lot["name"]) {
+    if (name === "PLATINA") return "#E5E4E2";
+    if (name === "OURO") return "#C8A44A";
+    return "#C0C0C0";
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: 20, textAlign: "center" }}>
+        Carregando vagas...
+      </div>
+    );
+  }
+
   return (
-    <div className="grid md:grid-cols-3 gap-4 mt-4">
-      {lots.map((lot) => (
-        <div
-          key={lot.name}
-          className="rounded-2xl border p-4 shadow-sm hover:shadow-md transition cursor-pointer"
-          onClick={() => onSelect(lot.name)}
-        >
-          <div className="text-sm opacity-60">{lot.name}</div>
+    <div
+      style={{
+        display: "grid",
+        gap: 16,
+        marginTop: 16,
+      }}
+    >
+      {lots.map((lot) => {
+        const remaining = getRemaining(lot.total, lot.reserved);
 
-          <div className="text-2xl font-bold mt-1">
-            {lot.percent} para você
-          </div>
+        return (
+          <div
+            key={lot.name}
+            onClick={() => onSelect?.(lot)}
+            style={{
+              borderRadius: 16,
+              padding: 20,
+              cursor: "pointer",
+              background: "#1a1a1a",
+              color: "#fff",
+              border: `2px solid ${getColor(lot.name)}`,
+              transition: "0.2s",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700 }}>
+              {lot.name}
+            </div>
 
-          <div className="mt-2 text-sm">
-            {lot.price}
-            <br />
-            <span className="opacity-70">{lot.installment}</span>
-          </div>
+            <div style={{ marginTop: 8, fontSize: 14, opacity: 0.8 }}>
+              {lot.percent}% por corrida
+            </div>
 
-          <div className="mt-3 text-xs text-orange-500">
-            {lot.remaining} vagas restantes
-          </div>
+            <div style={{ marginTop: 12, fontSize: 24, fontWeight: 700 }}>
+              R${lot.price}
+            </div>
 
-          <div className="mt-4 bg-black text-white text-center py-2 rounded-xl text-sm">
-            Escolher
+            <div style={{ fontSize: 13, opacity: 0.7 }}>
+              {lot.installment}
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              {remaining} vagas restantes
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                height: 6,
+                borderRadius: 4,
+                background: "#333",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${(remaining / lot.total) * 100}%`,
+                  height: "100%",
+                  background: getColor(lot.name),
+                }}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

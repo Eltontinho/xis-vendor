@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Resend } from "resend";
 import { MercadoPagoConfig, Payment } from "mercadopago";
+import { sendWhatsAppText } from "@/lib/elton/whatsapp";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Busca a conversa para obter dados do motorista
     const { data: conv } = await supabaseAdmin
       .from("vendor_conversations")
-      .select("driver_phone, driver_name, driver_city, lot_offered")
+      .select("driver_phone, driver_name, driver_city, lot_offered, driver_address, driver_plate")
       .eq("id", conversationId)
       .single();
 
@@ -88,11 +89,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Dispara e-mail de confirmação
+    // Cria registro do driver
     const driverName = conv?.driver_name || "Motorista";
     const driverPhone = conv?.driver_phone || "-";
     const driverCity = conv?.driver_city || "-";
     const lotLabel = lot?.toUpperCase() || "-";
+
+    await supabaseAdmin.from("drivers").insert({
+      name: driverName,
+      phone: driverPhone,
+      address: conv?.driver_address || null,
+      plate: conv?.driver_plate || null,
+      plan: lotLabel,
+      payment_status: "approved",
+    });
+
+    // WhatsApp para o motorista
+    if (conv?.driver_phone) {
+      await sendWhatsAppText(
+        conv.driver_phone,
+        `✅ Pagamento confirmado, ${driverName}! Bem-vindo ao Clube K-RRO.\n\nSeu plano ${lotLabel} está ativo. O link do app será enviado aqui no dia 10/06/2026.\n\nQualquer dúvida é só chamar. 🚗`
+      );
+    }
+
+    // Dispara e-mail de confirmação
     const amount = ((payment.transaction_amount as number) || 0).toLocaleString(
       "pt-BR",
       { style: "currency", currency: "BRL" }

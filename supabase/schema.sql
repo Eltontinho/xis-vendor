@@ -56,3 +56,48 @@ values
   ('Rio de Janeiro', 'lote2', 200, 0, 0),
   ('Rio de Janeiro', 'lote3', 300, 0, 0)
 on conflict (city, lot) do nothing;
+
+-- leads (perfil qualificado)
+create table if not exists leads (
+  id         uuid primary key default gen_random_uuid(),
+  nome       text,
+  cidade     text,
+  veiculo    text,
+  telefone   text unique,
+  stage      text default 'cadastro_pendente',
+  created_at timestamptz default now()
+);
+
+-- lead_states (Elton v2)
+create table if not exists lead_states (
+  phone      text primary key,
+  stage      text not null default 'novo',
+  history    jsonb not null default '[]',
+  "updatedAt" timestamptz not null default now()
+);
+
+-- Canal de origem por conversa
+alter table lead_states
+  add column if not exists channel text not null default 'web';
+
+alter table vendor_conversations
+  add column if not exists channel text not null default 'web';
+
+-- Cadastro data: endereço e placa do motorista
+alter table vendor_conversations
+  add column if not exists driver_address text,
+  add column if not exists driver_plate text;
+
+-- Drivers: registro de motoristas que concluíram o pagamento
+create table if not exists drivers (
+  id             uuid default gen_random_uuid() primary key,
+  name           text,
+  phone          text,
+  email          text,
+  address        text,
+  plate          text,
+  plan           text,
+  lot_number     text,
+  payment_status text,
+  created_at     timestamptz default now()
+);

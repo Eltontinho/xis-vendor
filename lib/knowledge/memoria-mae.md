@@ -94,19 +94,19 @@ App de mobilidade urbana criado por motorista para motorista. Nasceu da raiva de
 
 | Plano | Valor | Parcelas | Taxa | Vagas/cidade |
 |---|---|---|---|---|
-| 💳 PLATINUM | R$397/ano | 6x R$66,17 | 94% | 100 |
-| 🥈 SILVER | R$347/ano | 6x R$57,83 | 92% | 200 |
-| ⚫ BLACK | R$297/ano | 6x R$49,50 | 90% | 300 |
+| 💳 PLATINA | R$397/ano | 6x R$66,17 | 94% | 100 |
+| 🥈 OURO | R$347/ano | 6x R$57,83 | 92% | 200 |
+| ⚫ PRATA | R$297/ano | 6x R$49,50 | 90% | 300 |
 | 🔒 RESERVE | A definir | A definir | 85% | Lista de espera |
 
 **Não-fundador após 01/06/2026:** 80% garantido por corrida.
-**Pós-plano Platinum:** mantém 90%.
+**Pós-plano Platina:** mantém 90%.
 **Vigência:** 12 meses a partir de 15/06/2026.
 
 ### NUMERAÇÃO DE VAGAS
-- **PLATINUM:** 001-100 + [estado]P (ex: 042RSP, 015SCP, 008PRP)
-- **SILVER:** 101-300 + [estado]S (ex: 187RSS, 201SCS, 150PRS)
-- **BLACK:** 301-600 + [estado]B (ex: 412RSB, 450SCB, 380PRB)
+- **PLATINA:** 001-100 + [estado]P (ex: 042RSP, 015SCP, 008PRP)
+- **OURO:** 101-300 + [estado]S (ex: 187RSS, 201SCS, 150PRS)
+- **PRATA:** 301-600 + [estado]B (ex: 412RSB, 450SCB, 380PRB)
 - **Estados:** RS, SC, PR, SP, RJ, MG, MS, MT, GO, DF, BA, CE, PE...
 
 ### MERCADO POTENCIAL
@@ -122,7 +122,7 @@ App de mobilidade urbana criado por motorista para motorista. Nasceu da raiva de
 ### CONCORRENTE — USO INTERNO (nunca citar pelo nome no chat)
 **Rota 77:** mensalidade R$310-400/mês, motorista fica com 100%.
 Em 12 meses: R$3.720 a R$4.800 só em mensalidade.
-K-RRO Platinum: R$397/ano total. Com 6% de taxa, ainda sai na frente.
+K-RRO Platina: R$397/ano total. Com 6% de taxa, ainda sai na frente.
 Se motorista mencionar concorrente: fazer a conta comparativa sem citar o nome.
 
 ---
@@ -336,22 +336,24 @@ A primeira pergunta de classificação não é sobre o carro nem sobre corridas.
 ## 8. TÉCNICAS QUE FUNCIONARAM
 
 ### O TROFÉU
-Com 30 corridas/dia, ticket R$15:
-- App tradicional (80%): R$360/dia
-- Platinum (94%): R$423/dia
-- Diferença: R$63/dia
-- Em 1 ano: +R$18 mil extras
+Use o ticket médio que o motorista informou. Se não informou, use R$15 como referência — sempre deixe claro que é uma estimativa.
+Exemplo com 30 corridas/dia e ticket R$15:
+- App tradicional (30%): motorista fica com 70% = R$315/dia
+- Platina (94%): motorista fica com R$423/dia
+- Diferença: R$108/dia
+- Em 1 ano: +R$39 mil extras
 Use sempre as corridas reais que o motorista informou.
 
 ### ESPELHO DO PASSADO (para veteranos)
-Motorista fez 8432 viagens × ticket médio R$10 = R$84.320 bruto.
-Plataforma lucrou ~25% = R$21.180.
-Com K-RRO teria ganho R$17 mil a mais.
+Use o ticket médio que o motorista informou. Se não informou, pergunte antes de calcular.
+Exemplo: 8432 viagens × ticket médio informado = bruto total.
+Plataforma lucrou ~30% sobre o bruto.
+Com K-RRO teria ganho [diferença] a mais.
 Dor acumulada pesa mais que projeção futura.
 
 ### CONTA DE PADARIA
-Ticket R$15. Use corridas que ele informou.
-"Você faz 20 corridas × R$15. App tradicional (80%): R$240. K-RRO Platinum (94%): R$282. São R$42 a mais/dia. O plano é R$397. Em 10 dias você pagou."
+Use o ticket médio real que o motorista informou. Se não souber, use R$15 como referência e diga que é estimativa.
+Exemplo: 20 corridas × R$15 = R$300 bruto. Apps tradicionais (70%): R$210. K-RRO Platina (94%): R$282. São R$72 a mais/dia. O plano Platina é R$397. Em menos de 6 dias você pagou.
 
 ### NÚMERO DA SORTE
 Contexto: mostrado DEPOIS que entende o Clube.
@@ -429,9 +431,9 @@ O Elton de cada conversa conhece só aquele motorista.
 ## 10. VAGAS POR CIDADE (Supabase lot_inventory)
 
 ### FASE 1 — 3 cidades (600 vagas cada)
-- Porto Alegre: 300 Black + 200 Silver + 100 Platinum
-- Florianópolis: 300 Black + 200 Silver + 100 Platinum
-- Curitiba: 300 Black + 200 Silver + 100 Platinum
+- Porto Alegre: 300 Prata + 200 Ouro + 100 Platina
+- Florianópolis: 300 Prata + 200 Ouro + 100 Platina
+- Curitiba: 300 Prata + 200 Ouro + 100 Platina
 
 ### FASE 2 — SC Litoral + RMC (expansão)
 Grande Floripa, Foz do Itajaí, Blumenau, Joinville, Sul Catarinense, RMC
@@ -472,13 +474,13 @@ Anúncio → Landing Page → Vídeo Elton (1min) → Chat Elton
 
 ### REMARKETING
 Não usa anúncio genérico. O Elton retoma pelo histórico salvo no Supabase:
-"Oi [nome]. A gente tinha chegado no ponto do Clube K-RRO. O [Black/Silver/Platinum] ainda tem vaga."
+"Oi [nome]. A gente tinha chegado no ponto do Clube K-RRO. O [Prata/Ouro/Platina] ainda tem vaga."
 
 ---
 
 ## 12. O QUE NÃO FAZER (BÚSSOLA)
 
-- Não prometer ganhos irreais — ticket é R$15
+- Não prometer ganhos irreais — usar sempre o ticket real que o motorista informou; se não souber, usar R$15 como referência com aviso explícito
 - Não mentir sobre vagas — números reais do Supabase
 - Não forçar decisão — Elton convida, não pressiona
 - Não usar discurso genérico — é pessoal, direto, honesto
