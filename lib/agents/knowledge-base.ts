@@ -54,9 +54,9 @@ export function buildKnowledgeContext(
 ): string {
   const parts: string[] = [];
 
-  // 1. IDENTIDADE (sempre)
-  const identidade = cut(read("elton/identidade.md"), 800);
-  if (identidade) parts.push(`IDENTIDADE:\n${identidade}`);
+  // 1. IDENTIDADE — desativado temporariamente (estava causando invenção de contexto)
+  // const identidade = cut(read("elton/identidade.md"), 800);
+  // if (identidade) parts.push(`IDENTIDADE:\n${identidade}`);
 
   // 2. DIFERENCIAIS (essencial)
   const diferenciais = cut(read("krro/diferenciais.md"), 800);
@@ -75,11 +75,11 @@ export function buildKnowledgeContext(
     }
   }
 
-  // 5. PERSONA (resumo só)
-  if (persona && persona !== "unknown") {
-    const perfis = cut(read("personas/perfis.md"), 500);
-    if (perfis) parts.push(`PERFIL:\n${perfis}`);
-  }
+  // 5. PERSONA — desativado temporariamente (estava aplicando perfil antes de perguntar)
+  // if (persona && persona !== "unknown") {
+  //   const perfis = cut(read("personas/perfis.md"), 500);
+  //   if (perfis) parts.push(`PERFIL:\n${perfis}`);
+  // }
 
   return parts.join("\n\n---\n\n");
 }
