@@ -98,6 +98,31 @@ create table if not exists drivers (
   plate          text,
   plan           text,
   lot_number     text,
+  payment_id     text,
   payment_status text,
+  username       text unique,
+  password_hash  text,
+  password_temp  text,
+  status         text not null default 'active',
   created_at     timestamptz default now()
+);
+
+-- Campos adicionais caso tabela já exista
+alter table drivers add column if not exists payment_id    text;
+alter table drivers add column if not exists username      text unique;
+alter table drivers add column if not exists password_hash text;
+alter table drivers add column if not exists password_temp text;
+alter table drivers add column if not exists status        text not null default 'active';
+alter table drivers add column if not exists email         text;
+
+-- Motoristas comuns (reembolsados ou pós-lançamento)
+create table if not exists common_drivers (
+  id         uuid default gen_random_uuid() primary key,
+  name       text,
+  phone      text,
+  email      text,
+  address    text,
+  plate      text,
+  origin     text default 'refund',
+  created_at timestamptz default now()
 );
