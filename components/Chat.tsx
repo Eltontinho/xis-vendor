@@ -23,7 +23,9 @@ function generateId() {
 }
 
 export default function Chat({ driverCity }: { driverCity?: string }) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>([
+    { id: "init", role: "assistant", content: "Oi! Sou o Elton, consultor da K-RRO. Qual é o seu nome?" },
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCards, setShowCards] = useState(false);
@@ -250,7 +252,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
         </div>
 
         {/* Input */}
-        <div style={{ background: "#000000", borderTop: "1px solid #0066ff", padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+        <div style={{ background: "#000000", borderTop: "1px solid #0066ff", padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: "max(10px, env(safe-area-inset-bottom))", position: "sticky", bottom: 0 }}>
           <input
             className="chat-input"
             value={input}
