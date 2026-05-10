@@ -2,6 +2,7 @@ import { classify } from "./classifier";
 import { strategize } from "./strategist";
 import { buildKnowledgeContext } from "./knowledge-base";
 import { generateVoice } from "./voice";
+import { debate } from "./debater";
 import { guard } from "./guardian";
 
 type Msg = {
@@ -24,44 +25,26 @@ export async function orchestrate({
   driverCity,
 }: OrchestratorInput): Promise<string> {
   try {
-    // 1. CLASSIFICAÇÃO
-    const classification = await classify(message, history);
+    const [classification, strategy] = await Promise.all([
+      classify(message, history),
+      strategize(message, history.map((h) => h.content)),
+    ]);
 
-    // BLOQUEIO DE RISCO
     if (classification.risk === "high") {
       return "Não vou seguir por esse caminho.";
     }
 
-    // 2. ESTRATÉGIA (DECISÃO DO QUE FAZER)
-    const strategy = strategize(
-      message,
-      history.map((h) => h.content)
-    );
-
-    // 3. CONTEXTO (CONHECIMENTO)
-    const knowledge = buildKnowledgeContext(
-      driverCity || null,
-      classification.persona
-    );
+    const knowledge = buildKnowledgeContext(driverCity || null, classification.persona);
 
     const systemParts: string[] = [];
-
-    // injeta contexto
     if (knowledge) systemParts.push(knowledge);
+    systemParts.push(`Perfil detectado: ${classification.persona}. Temperatura: ${classification.temperature}.`);
 
-    // injeta leitura da pessoa (leve, sem poluir)
-    systemParts.push(`Perfil detectado: ${classification.persona}.`);
+    const draft = await generateVoice(systemParts, history, message, strategy.type);
 
-    // 4. GERA RESPOSTA (COM ESTRATÉGIA)
-    const draft = await generateVoice(
-      systemParts,
-      history,
-      message,
-      strategy.type
-    );
+    const debated = await debate({ draft, userMessage: message });
 
-    // 5. GUARDA (CORRIGE EXCESSO / ROBÔ)
-    const final = await guard(draft);
+    const final = await guard(debated);
 
     return final;
   } catch (err) {

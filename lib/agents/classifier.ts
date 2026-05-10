@@ -10,94 +10,81 @@ const DEFAULT: Classification = {
   persona: "direct",
 };
 
-function normalize(text: string) {
-  return text.toLowerCase();
+const CLASSIFIER_PROMPT = `Você é um classificador de mensagens de motoristas de app. Analise e retorne JSON.
+
+Campos:
+- temperature: "cold" (indiferente/neutro), "warm" (interessado), "hot" (quer comprar/fechar)
+- risk: "none" ou "high" (ofensa, agressão, preconceito)
+- persona: "direct" (objetivo), "confused" (não entende), "apathetic" (não demonstra interesse), "skeptic" (desconfia), "problematic" (agressivo/ofensivo)
+
+Retorne APENAS o JSON, sem explicação. Exemplo:
+{"temperature":"warm","risk":"none","persona":"skeptic"}`;
+
+async function callGroq(messages: { role: string; content: string }[]): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages,
+      temperature: 0.1,
+      max_tokens: 60,
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`Groq classifier ${res.status}`);
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
 }
 
-function isShort(text: string) {
-  return text.trim().split(" ").length <= 2;
+function fallbackClassify(message: string): Classification {
+  const t = message.toLowerCase();
+  if (["idiota", "lixo", "merda", "viado", "preto"].some((w) => t.includes(w)))
+    return { temperature: "cold", risk: "high", persona: "problematic" };
+  if (["quero", "como pago", "manda link", "fechar"].some((w) => t.includes(w)))
+    return { temperature: "hot", risk: "none", persona: "direct" };
+  if (["garante", "verdade", "duvido", "é golpe"].some((w) => t.includes(w)))
+    return { temperature: "warm", risk: "none", persona: "skeptic" };
+  if (["como funciona", "não entendi", "nao entendi", "explica"].some((w) => t.includes(w)))
+    return { temperature: "cold", risk: "none", persona: "confused" };
+  if (t.trim().split(" ").length <= 2)
+    return { temperature: "cold", risk: "none", persona: "apathetic" };
+  return DEFAULT;
 }
 
-function isApathetic(text: string) {
-  const t = normalize(text);
-  return (
-    t === "sei la" ||
-    t === "sei lá" ||
-    t === "tanto faz" ||
-    t === "normal" ||
-    isShort(t)
-  );
-}
-
-function isConfused(text: string) {
-  const t = normalize(text);
-  return (
-    t.includes("como funciona") ||
-    t.includes("não entendi") ||
-    t.includes("nao entendi") ||
-    t.includes("explica")
-  );
-}
-
-function isSkeptic(text: string) {
-  const t = normalize(text);
-  return (
-    t.includes("garante") ||
-    t.includes("verdade") ||
-    t.includes("isso funciona") ||
-    t.includes("duvido")
-  );
-}
-
-function isProblematic(text: string) {
-  const t = normalize(text);
-  return (
-    t.includes("idiota") ||
-    t.includes("lixo") ||
-    t.includes("merda") ||
-    t.includes("preto") ||
-    t.includes("viado")
-  );
-}
-
-function isHot(text: string) {
-  const t = normalize(text);
-  return (
-    t.includes("quero") ||
-    t.includes("como pago") ||
-    t.includes("manda link") ||
-    t.includes("fechar")
-  );
-}
-
-export function classify(
+export async function classify(
   message: string,
   history: { role: "user" | "assistant"; content: string }[]
-): Classification {
-  const msg = normalize(message);
+): Promise<Classification> {
+  if (!process.env.GROQ_API_KEY) return fallbackClassify(message);
 
-  // risco
-  if (isProblematic(msg)) {
-    return { temperature: "cold", risk: "high", persona: "problematic" };
+  try {
+    const lastMsgs = history
+      .slice(-4)
+      .map((h) => `${h.role}: ${h.content}`)
+      .join("\n");
+    const content = lastMsgs
+      ? `Histórico recente:\n${lastMsgs}\n\nMensagem atual: ${message}`
+      : message;
+
+    const result = await callGroq([
+      { role: "system", content: CLASSIFIER_PROMPT },
+      { role: "user", content },
+    ]);
+
+    const match = result.match(/\{[^}]+\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (parsed.temperature && parsed.risk && parsed.persona) {
+        return parsed as Classification;
+      }
+    }
+  } catch {
+    // falls through to fallback
   }
 
-  // temperatura
-  if (isHot(msg)) {
-    return { temperature: "hot", risk: "none", persona: "direct" };
-  }
-
-  // persona
-  if (isApathetic(msg)) {
-    return { temperature: "cold", risk: "none", persona: "apathetic" };
-  }
-
-  if (isConfused(msg)) {
-    return { temperature: "cold", risk: "none", persona: "confused" };
-  }
-
-  if (isSkeptic(msg)) {
-    return { temperature: "warm", risk: "none", persona: "skeptic" };
-  }
-
-  return DEFAULT;
+  return fallbackClassify(message);
 }
