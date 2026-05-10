@@ -170,17 +170,15 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", background: "#000000" }}>
       <style>{`
         @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @keyframes neon-glow { 0%, 100% { box-shadow: 0 0 8px #0066ff; } 50% { box-shadow: 0 0 16px #00aaff; } }
-        .chat-messages::-webkit-scrollbar { width: 4px; }
-        .chat-messages::-webkit-scrollbar-track { background: transparent; }
-        .chat-messages::-webkit-scrollbar-thumb { background: #0066ff; border-radius: 4px; }
-        .chat-input:focus { box-shadow: 0 0 8px #0066ff; outline: none; }
-        .chat-input::placeholder { color: rgba(0,102,255,0.5); }
+        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.5); } 50% { box-shadow: 0 0 0 4px rgba(0,255,136,0); } }
+        .chat-input:focus { border-color: #0066ff !important; outline: none; box-shadow: 0 0 0 2px rgba(0,102,255,0.2); }
+        .chat-input::placeholder { color: #555; }
         .chat-input { caret-color: #0066ff; }
-        .send-btn:hover:not(:disabled) { background: #00aaff !important; }
+        .send-btn:hover:not(:disabled) { background: #0052cc !important; }
         .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #0066ff; margin: 0 2px; animation: pulse-dot 1.2s infinite; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        .online-dot { animation: pulse-green 2s infinite; }
       `}</style>
 
       {/* WhatsApp flutuante */}
@@ -197,15 +195,15 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
       <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#000000", width: "100%", maxWidth: 480, height: "100vh", boxShadow: "0 0 40px rgba(0,102,255,0.25), inset 0 0 0 1px rgba(0,102,255,0.15)" }}>
 
         {/* Header */}
-        <div style={{ background: "#000000", borderBottom: "1px solid #0066ff", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, boxShadow: "0 0 12px rgba(0,102,255,0.3)" }}>
-          <img src="/logo-krro.png" alt="K-RRO" style={{ height: 28, objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+        <div style={{ background: "#0a0a0f", borderBottom: "1px solid #0066ff", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <img src="/logo-krro.png" alt="K-RRO" style={{ height: 32, objectFit: "contain", filter: "brightness(0) invert(1)", flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <div style={{ color: "#ffffff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Elton</div>
-            <div style={{ color: "#00aaff", fontSize: 11 }}>Consultor K-RRO</div>
+            <div style={{ color: "#aaaaaa", fontSize: 11 }}>Consultor K-RRO</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00aaff", animation: "pulse-dot 2s infinite" }} />
-            <span style={{ color: "#00aaff", fontSize: 11 }}>online</span>
+            <div className="online-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#00ff88", flexShrink: 0 }} />
+            <span style={{ color: "#00ff88", fontSize: 11 }}>online</span>
           </div>
         </div>
 
@@ -225,8 +223,8 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
                   padding: "10px 14px",
                   borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
                   background: m.role === "user" ? "#0066ff" : "#0d1117",
-                  borderLeft: m.role === "assistant" ? "2px solid #0066ff" : "none",
-                  color: "#ffffff",
+                  borderLeft: m.role === "assistant" ? "3px solid #0066ff" : "none",
+                  color: m.role === "user" ? "#ffffff" : "#e0e0e0",
                   fontSize: 14,
                   lineHeight: 1.5,
                   whiteSpace: "pre-wrap",
@@ -260,7 +258,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
             placeholder="Digite sua mensagem..."
             disabled={loading}
             onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-            style={{ flex: 1, padding: "10px 14px", background: "#0d1117", border: "1px solid #0066ff33", borderRadius: 20, color: "#ffffff", fontSize: 14, outline: "none", opacity: loading ? 0.5 : 1, transition: "box-shadow 0.2s" }}
+            style={{ flex: 1, padding: "10px 14px", background: "#0d1117", border: "1px solid #222", borderRadius: 20, color: "#ffffff", fontSize: 14, outline: "none", opacity: loading ? 0.5 : 1, transition: "border-color 0.2s, box-shadow 0.2s" }}
           />
           <button
             className="send-btn"

@@ -21,6 +21,6 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: #0066ff;
   border-radius: 2px;
 }
