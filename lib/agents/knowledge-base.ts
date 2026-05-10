@@ -50,23 +50,21 @@ function cut(text: string, max = 1200): string {
 
 export function buildKnowledgeContext(
   driverCity: string | null,
-  persona: string
+  stage: string
 ): string {
   const parts: string[] = [];
 
-  // 1. IDENTIDADE — desativado temporariamente (estava causando invenção de contexto)
-  // const identidade = cut(read("elton/identidade.md"), 800);
-  // if (identidade) parts.push(`IDENTIDADE:\n${identidade}`);
-
-  // 2. DIFERENCIAIS (essencial)
+  // Diferenciais: sempre que não for greeting
   const diferenciais = cut(read("krro/diferenciais.md"), 800);
   if (diferenciais) parts.push(`K-RRO:\n${diferenciais}`);
 
-  // 3. PLANOS (curto)
-  const planos = cut(read("krro/planos.md"), 500);
-  if (planos) parts.push(`PLANOS:\n${planos}`);
+  // Planos: só quando K-RRO já foi conectado ou clube está sendo mostrado
+  if (stage === "krro_shown" || stage === "club_shown" || stage === "pain_revealed") {
+    const planos = cut(read("krro/planos.md"), 500);
+    if (planos) parts.push(`PLANOS:\n${planos}`);
+  }
 
-  // 4. CIDADE (leve, opcional)
+  // Cidade: quando disponível
   if (driverCity) {
     const file = getCityFile(driverCity);
     if (file) {
@@ -74,12 +72,6 @@ export function buildKnowledgeContext(
       if (city) parts.push(`CIDADE:\n${city}`);
     }
   }
-
-  // 5. PERSONA — desativado temporariamente (estava aplicando perfil antes de perguntar)
-  // if (persona && persona !== "unknown") {
-  //   const perfis = cut(read("personas/perfis.md"), 500);
-  //   if (perfis) parts.push(`PERFIL:\n${perfis}`);
-  // }
 
   return parts.join("\n\n---\n\n");
 }
