@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\tinho\\\\axis-vendor\\\\lib\\\\whatsapp\")",
+      "Bash(Out-Null)",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\tinho\\\\axis-vendor\\\\app\\\\api\\\\whatsapp\\\\webhook\")",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\tinho\\\\axis-vendor\\\\app\\\\api\\\\whatsapp\\\\send\")",
+      "Bash(Write-Output \"dirs created\")",
+      "PowerShell(New-Item *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(ngrok version *)",
+      "PowerShell(\\(Invoke-RestMethod \"http://localhost:4040/api/tunnels\"\\).tunnels | Select-Object name, @{n=\"url\";e={$_.public_url}})",
+      "PowerShell(Start-Sleep -Seconds 6; $res = Invoke-WebRequest \"http://localhost:3000/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=krro_webhook_2026&hub.challenge=CHALLENGE_TOKEN_123\" -UseBasicParsing; Write-Output \"Status: $\\($res.StatusCode\\)\"; Write-Output \"Body:   $\\($res.Content\\)\")",
+      "PowerShell($res = Invoke-WebRequest \"http://localhost:3000/api/elton/historico?phone=5551900000002\" -UseBasicParsing; $res.Content)",
+      "PowerShell(Start-Process \"https://supabase.com/dashboard/project/fcuhkggdrgbxrompptaj/sql/new\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node *)",
+      "Bash(npm run *)",
+      "Bash(Get-Content \"C:\\\\Users\\\\tinho\\\\axis-vendor\\\\components\\\\Chat.tsx\")",
+      "Bash(Measure-Object -Line)",
+      "PowerShell(Get-Content *)",
+      "Bash(vercel *)",
+      "PowerShell(vercel env *)",
+      "Bash(curl -s -X POST https://axis-vendor.vercel.app/api/axis -H 'Content-Type: application/json' -d '{\"message\":\"Oi, quero saber mais sobre a K-RRO\",\"history\":[],\"driverCity\":\"São Paulo\"}' --max-time 30)",
+      "Bash(curl *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(Get-Content C:\\\\Users\\\\tinho\\\\axis-vendor\\\\lib\\\\agents\\\\orchestrator.ts)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['choices'][0]['message']['content']\\)\")",
+      "Bash(git clone *)",
+      "PowerShell(vercel deploy *)"
+    ]
+  }
+}

@@ -35,3 +35,5 @@ next-env.d.ts
 
 # video (adicione o arquivo manualmente)
 public/video/*.mp4
+
+.vercel
