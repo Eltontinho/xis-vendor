@@ -5,21 +5,12 @@ interface VoiceMessage {
   content: string;
 }
 
-const VOICE_BEHAVIOR = `Você escreve como humano.
-
-Frases curtas.
-Sem explicação longa.
-
-Você conduz.
-
-Se passou de 3 mensagens sem K-RRO → erro.
-
-Usuário seco → você acelera.
-
-Pergunta → responde e puxa de volta.
-
-Você não tenta convencer.
-Você mostra e deixa ele concluir.`;
+const VOICE_BEHAVIOR = `REGRAS INVIOLÁVEIS:
+Nunca invente dados que o motorista não disse.
+Nunca fale de carro, cidade ou corrida como se fossem seus.
+Se não foi dito na conversa, não assuma.
+Máximo 2 linhas por mensagem.
+Uma pergunta por vez.`;
 
 function applyStrategyHint(type: string): string {
   switch (type) {
