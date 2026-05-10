@@ -205,49 +205,49 @@ export default function EltonChat() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <style>{`
-        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.5); } 50% { box-shadow: 0 0 0 4px rgba(0,255,136,0); } }
-        .page-input:focus { border-color: #0066ff !important; outline: none; box-shadow: 0 0 0 2px rgba(0,102,255,0.2); }
-        .page-input::placeholder { color: #555; }
-        .page-send:hover:not(:disabled) { background: #0052cc !important; }
-        .page-online { animation: pulse-green 2s infinite; }
-      `}</style>
+    <div className="min-h-screen bg-black flex items-center justify-center">
       <div
         className="relative w-full max-w-[480px] flex flex-col overflow-hidden"
         style={{
           height: "100dvh",
           maxHeight: "100dvh",
-          backgroundColor: "#0a0a0f",
-          boxShadow: "0 0 40px rgba(0,102,255,0.25), inset 0 0 0 1px rgba(0,102,255,0.15)",
+          backgroundColor: "#000000",
+          border: "1px solid #1B5CB8",
+          borderRadius: 12,
         }}
       >
         {/* ── Header ── */}
         <div
           className="flex items-center gap-3 px-4 py-3 z-10 flex-shrink-0"
-          style={{ backgroundColor: "#0a0a0f", borderBottom: "1px solid #0066ff" }}
+          style={{ backgroundColor: "#000000", borderBottom: "1px solid #1B5CB8" }}
         >
           <img
-            src="/logo-krro.png"
+            src="/logo-krro.jpg"
             alt="K-RRO"
-            style={{ height: 32, objectFit: "contain", flexShrink: 0, filter: "brightness(0) invert(1)" }}
+            style={{ height: 28, objectFit: "contain", flexShrink: 0 }}
+          />
+          <img
+            src="/elton-avatar.png"
+            alt="Elton"
+            style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
           />
           <div className="flex-1 min-w-0">
-            <p style={{ color: "#ffffff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Elton</p>
-            <p style={{ color: "#aaaaaa", fontSize: 11 }}>Consultor K-RRO</p>
+            <p className="font-light text-sm leading-tight text-white tracking-wide">
+              Elton — Consultor
+            </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span
-              className="page-online"
-              style={{ width: 8, height: 8, borderRadius: "50%", background: "#00ff88", display: "inline-block", flexShrink: 0 }}
-            />
-            <span style={{ color: "#00ff88", fontSize: 11 }}>online</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+            </span>
+            <span className="text-[11px] font-mono" style={{ color: "#8899AA" }}>online</span>
           </div>
           {process.env.NEXT_PUBLIC_DEV_MODE === "true" && (
             <button
               onClick={() => { localStorage.clear(); window.location.reload(); }}
               className="text-[10px] transition-colors flex-shrink-0 px-2 py-0.5 rounded"
-              style={{ color: "#0066ff", border: "1px solid #0066ff" }}
+              style={{ color: "#4A8FD4", border: "1px solid #1B5CB8" }}
               title="Limpar sessão (apenas dev)"
             >
               Nova conversa
@@ -256,10 +256,10 @@ export default function EltonChat() {
         </div>
 
         {/* ── Área de mensagens com watermark ── */}
-        <div className="flex-1 relative overflow-hidden" style={{ backgroundColor: "#0a0a0f" }}>
+        <div className="flex-1 relative overflow-hidden" style={{ backgroundColor: "#FFFFFF" }}>
           {/* Logo watermark centralizada */}
           <img
-            src="/logo-krro.png"
+            src="/logo-krro-dark.png"
             alt=""
             aria-hidden="true"
             style={{
@@ -267,10 +267,9 @@ export default function EltonChat() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: "70%",
-              maxWidth: 300,
-              opacity: 0.04,
-              filter: "brightness(0) invert(1)",
+              width: 440,
+              opacity: 0.08,
+              mixBlendMode: "screen",
               pointerEvents: "none",
               zIndex: 0,
               userSelect: "none",
@@ -289,20 +288,29 @@ export default function EltonChat() {
                   key={msg.id}
                   className={`flex items-end gap-1.5 ${isElton ? "justify-start" : "justify-end"}`}
                 >
+                  {/* Avatar miniatura Elton */}
+                  {isElton && (
+                    <img
+                      src="/elton-avatar.png"
+                      alt=""
+                      aria-hidden="true"
+                      style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, marginBottom: 2 }}
+                    />
+                  )}
                   {/* Balão */}
                   <div
                     className="max-w-[78%] px-3 py-2 text-sm leading-snug"
                     style={
                       isElton
                         ? {
-                            backgroundColor: "#0d1117",
-                            borderLeft: "3px solid #0066ff",
-                            color: "#e0e0e0",
+                            backgroundColor: "#F0F4FF",
+                            borderLeft: "3px solid #1B5CB8",
+                            color: "#1A1A1A",
                             borderRadius: "0 12px 12px 12px",
                           }
                         : {
-                            backgroundColor: "#0066ff",
-                            color: "#ffffff",
+                            backgroundColor: "#1B5CB8",
+                            color: "#FFFFFF",
                             borderRadius: "12px 12px 0 12px",
                           }
                     }
@@ -336,7 +344,7 @@ export default function EltonChat() {
                       <span
                         suppressHydrationWarning
                         className="text-[10px] tabular-nums font-mono"
-                        style={{ color: "#666666" }}
+                        style={{ color: "#888888" }}
                       >
                         {formatTime(msg.timestamp)}
                       </span>
@@ -355,8 +363,8 @@ export default function EltonChat() {
                 <div
                   className="px-4 py-3"
                   style={{
-                    backgroundColor: "#0d1117",
-                    borderLeft: "3px solid #0066ff",
+                    backgroundColor: "#F0F4FF",
+                    borderLeft: "3px solid #1B5CB8",
                     borderRadius: "0 12px 12px 12px",
                   }}
                 >
@@ -365,7 +373,7 @@ export default function EltonChat() {
                       <span
                         key={delay}
                         className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ backgroundColor: "#0066ff", animationDelay: `${delay}ms` }}
+                        style={{ backgroundColor: "#1B5CB8", animationDelay: `${delay}ms` }}
                       />
                     ))}
                   </div>
@@ -380,7 +388,7 @@ export default function EltonChat() {
         {/* ── Input ── */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
-          style={{ backgroundColor: "#000000", borderTop: "1px solid #0066ff" }}
+          style={{ backgroundColor: "#FFFFFF", borderTop: "1px solid #1B5CB8" }}
         >
           <input
             ref={inputRef}
@@ -395,11 +403,11 @@ export default function EltonChat() {
             }}
             placeholder="Digite uma mensagem"
             disabled={loading}
-            className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
+            className="flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{
-              backgroundColor: "#0d1117",
-              border: "1px solid #222",
-              color: "#ffffff",
+              backgroundColor: "#F5F5F5",
+              border: "1px solid #1B5CB8",
+              color: "#1A1A1A",
             }}
           />
 
@@ -409,8 +417,8 @@ export default function EltonChat() {
               onClick={() => sendText(input)}
               disabled={loading}
               aria-label="Enviar mensagem"
-              className="page-send w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
-              style={{ backgroundColor: "#0066ff" }}
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+              style={{ backgroundColor: "#1B5CB8" }}
             >
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -424,7 +432,7 @@ export default function EltonChat() {
               onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
               aria-label={isRecording ? "Gravando — solte para enviar" : "Segure para gravar"}
               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-              style={{ backgroundColor: isRecording ? "#ef4444" : "#0066ff" }}
+              style={{ backgroundColor: isRecording ? "#ef4444" : "#1B5CB8" }}
             >
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
@@ -451,7 +459,7 @@ export default function EltonChat() {
           <button
             onClick={() => setModalImage(null)}
             className="absolute top-4 right-4 flex items-center justify-center w-9 h-9 rounded-full text-white text-lg font-light transition-colors"
-            style={{ backgroundColor: "rgba(0,102,255,0.7)" }}
+            style={{ backgroundColor: "rgba(27,92,184,0.7)" }}
             aria-label="Fechar"
           >
             ✕
