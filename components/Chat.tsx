@@ -167,7 +167,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
   const waHref = waNumber ? `https://wa.me/${waNumber.replace(/\D/g, "")}?text=Oi+Elton%2C+quero+saber+mais+sobre+a+K-RRO` : "#";
 
   return (
-    <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column" }}>
       <style>{`
         @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes neon-glow { 0%, 100% { box-shadow: 0 0 8px #0066ff; } 50% { box-shadow: 0 0 16px #00aaff; } }
@@ -194,7 +194,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
       )}
 
       {/* Container principal */}
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#000000" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#000000" }}>
 
         {/* Header */}
         <div style={{ background: "#000000", borderBottom: "1px solid #0066ff", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, boxShadow: "0 0 12px rgba(0,102,255,0.3)" }}>
@@ -211,7 +211,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
 
         {/* Mensagens */}
         <div ref={listRef} className="chat-messages"
-          style={{ flex: 1, minHeight: 0, height: 0, overflowY: "auto", padding: "16px 12px", background: "#0a0a0f", scrollbarWidth: "thin", scrollbarColor: "#0066ff transparent", position: "relative" }}>
+          style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 12px", background: "#0a0a0f", scrollbarWidth: "thin", scrollbarColor: "#0066ff transparent", position: "relative" }}>
 
           {/* Marca d'água */}
           <img src="/logo-krro.png" alt="" aria-hidden="true"
@@ -252,7 +252,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
         </div>
 
         {/* Input */}
-        <div style={{ background: "#000000", borderTop: "1px solid #0066ff", padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: "max(10px, env(safe-area-inset-bottom))", position: "sticky", bottom: 0 }}>
+        <div style={{ background: "#000000", borderTop: "1px solid #0066ff", padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: "max(10px, env(safe-area-inset-bottom))", position: "relative", zIndex: 10 }}>
           <input
             className="chat-input"
             value={input}
