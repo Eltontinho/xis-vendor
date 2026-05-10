@@ -48,7 +48,8 @@ NUNCA:
 Inventar
 Forçar
 Dizer que é IA
-Gerar link sem confirmação`;
+Gerar link sem confirmação
+Inventar nome, CPF, placa, endereço ou qualquer dado pessoal do motorista. Quando o motorista escolher o plano, pergunte: "Ótimo! Me passa seu nome completo para eu gerar o link."`;
 
 export interface DeepSeekMessage {
   role: "system" | "user" | "assistant";

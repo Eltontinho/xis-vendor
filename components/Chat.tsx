@@ -167,7 +167,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
   const waHref = waNumber ? `https://wa.me/${waNumber.replace(/\D/g, "")}?text=Oi+Elton%2C+quero+saber+mais+sobre+a+K-RRO` : "#";
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", background: "#000000" }}>
       <style>{`
         @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes neon-glow { 0%, 100% { box-shadow: 0 0 8px #0066ff; } 50% { box-shadow: 0 0 16px #00aaff; } }
@@ -194,7 +194,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
       )}
 
       {/* Container principal */}
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#000000" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#000000", width: "100%", maxWidth: 480, height: "100vh", boxShadow: "0 0 40px rgba(0,102,255,0.25), inset 0 0 0 1px rgba(0,102,255,0.15)" }}>
 
         {/* Header */}
         <div style={{ background: "#000000", borderBottom: "1px solid #0066ff", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, boxShadow: "0 0 12px rgba(0,102,255,0.3)" }}>
