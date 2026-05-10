@@ -1,82 +1,44 @@
 # DIFERENCIAIS K-RRO
 
 ## CATEGORIAS DE VEÍCULO
+GO: Hatch ou sedã básico (Onix, Polo, HB20, Cronos, Argo). FIPE até R$69.999, ano mínimo 2020.
+PLUS: Crossovers, SUVs intermediários, sedãs premium (Onix LTZ/Premier, Virtus, Nivus, Creta, Kicks). FIPE R$70k-149k, ano mínimo 2020. Onix LTZ/Premier = sempre PLUS.
+SUV: Utilitários esportivos a partir de 2018.
+EXEC: Acima de R$150k ou ano 2024+. Cores neutras obrigatórias.
+CARE: Sedãs e SUVs para acessibilidade, idosos, gestantes, crianças pequenas. Exige certificação K-RRO.
+NUNCA use: Select, Comfort, Black, X, Sport, Flex, Move, Elite.
 
-| Categoria | Perfil | Requisito |
-|---|---|---|
-| FLEX | Hatches e sedãs populares | 2018+ |
-| SELECT | Sedãs médios e compactos premium | 2020+ |
-| MOVE | SUVs e utilitários | 2018+ |
-| ELITE | Premium e importados | 2020+ |
-| CARE | Mobilidade assistida (crianças, idosos, cadeirantes) | 2018+ + certificado K-RRO |
-
-Regra: veículos antes de 2018 ou adesivados não são aceitos.
-Categorização completa no sistema — Elton classifica ao receber modelo e ano.
-
-## TABELA DE TARIFAS POR KM
-
-| Categoria | Normal | Pico | Noturno/FDS |
-|---|---|---|---|
-| K-RRO GO | R$2,30 | R$2,50 | R$2,70 |
-| PLUS/KIDS | R$2,50 | R$3,00 | R$3,50 |
-| K-RRO SUV | R$2,70 | R$3,60 | R$4,50 |
-| K-RRO ELITE | R$2,90 | R$4,45 | R$6,00 |
-
-## VIAGEM MÍNIMA
-4km para todas as categorias.
-GO Normal mínimo: 4 × R$2,30 = R$9,20
-
-Desconto da plataforma sobre viagem mínima GO Normal R$9,20:
-- PLATINUM (6%): motorista recebe R$8,65
-- SILVER (8%): motorista recebe R$8,46
-- BLACK (10%): motorista recebe R$8,28
-- Não-fundador (20%): motorista recebe R$7,36
-- Uber/99 (~30%): motorista recebe ~R$6,44
+## TARIFAS POR KM
+GO: Normal R$2,30 | Pico R$2,50 | Noturno/FDS R$2,70
+PLUS/KIDS: Normal R$2,50 | Pico R$3,00 | Noturno/FDS R$3,50
+SUV: Normal R$2,70 | Pico R$3,60 | Noturno/FDS R$4,50
+EXEC/CARE: Normal R$2,90 | Pico R$4,45 | Noturno/FDS R$6,00
+Viagem mínima: 4km. GO Normal mínimo: R$9,20.
 
 ## JANELAS DE HORÁRIO
-- Normal: Seg-Sex 08:30-11:00 e 14:00-17:00
-- Pico: Seg-Sex 05:30-08:30, 11:00-14:00 e 17:00-23:00
-- Noturno/FDS: 23:00-05:30 e feriados integrais
+Normal: Seg-Sex 08:30-11:00 e 14:00-17:00
+Pico: Seg-Sex 05:30-08:30, 11:00-14:00 e 17:00-23:00
+Noturno/FDS: 23:00-05:30 e feriados integrais
 
 ## CANCELAMENTO
-Aplicado após 2 minutos do aceite.
-Valor: equivalente à viagem mínima da categoria.
-100% do valor líquido vai para o motorista.
+Após 2 minutos do aceite. Valor da viagem mínima vai 100% para o motorista.
 
 ## ESPERA
-3 minutos gratuitos após chegada confirmada.
-Após 3 minutos:
-- GO: R$0,50/min
-- PLUS/KIDS: R$0,70/min
-- SUV/ELITE: R$1,20/min
+3 minutos gratuitos. Depois: GO R$0,50/min | PLUS/KIDS R$0,70/min | SUV/EXEC R$1,20/min
 
-## SEGURANÇA E LIQUIDEZ
-- Dinheiro no embarque — sem fiado
-- Trava R$50: corridas acima aceitam só Pix ou Cartão
-- Seguro: R$0,25 por corrida — cobertura R$100 mil
-- Pix diário às 6h
+## DIFERENCIAIS
+Taxa por horário — motorista sabe quanto vai ganhar ANTES de aceitar.
+Sem promoção paga pelo motorista.
+Sem penalidade por não aceitar.
+Pix diário às 6h. Seguro R$100 mil. Reembolso 7 dias.
+Corrida avulsa com segurança — taxa só para pagamento e seguro.
 
-## CORRIDA AVULSA
-Motorista usa a plataforma para corridas combinadas com segurança.
-Calcula o valor na frente do passageiro.
-Taxa cobrada só para processar pagamento e seguro.
-REGRA: não fique parado esperando passageiro dos colegas.
+## CONTA DE PADARIA
+20 corridas × R$15 = R$300/dia bruto.
+App tradicional (80%): R$240/dia.
+K-RRO PLATINA (94%): R$282/dia.
+R$42 a mais por dia. O plano R$397 se paga em 10 dias.
 
-## SEM PROMOÇÃO QUE QUEM PAGA É VOCÊ
-Nas plataformas tradicionais, promoções para passageiros são pagas pelo motorista.
-Na K-RRO isso não existe.
-
-## CONTA DE PADARIA — ARGUMENTO DO ELTON
-Numa corrida GO normal de 10km:
-10 × R$2,30 = R$23,00
-- PLATINUM (94%): R$21,62 líquido
-- Uber/99 (70%): R$16,10 líquido
-- Diferença: R$5,52 por corrida
-- 30 corridas/dia: R$165,60 a mais por dia
-- O plano PLATINUM R$397 se paga em 3 dias
-
-## CONCORRENTE ROTA 77 (uso interno — nunca citar nome no chat)
-Mensalidade R$310-400/mês = R$3.720-4.800/ano
-K-RRO PLATINUM: R$397/ano total
-Mesmo com 6% de taxa, o motorista sai muito na frente.
-Se motorista mencionar: faça a conta sem citar o nome.
+## CONCORRENTE (nunca citar nome no chat)
+Rota 77: R$310-400/mês = R$3.720-4.800/ano.
+K-RRO PLATINA: R$397/ano total. Com 6% de taxa, ainda sai na frente.
