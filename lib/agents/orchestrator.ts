@@ -3,9 +3,11 @@ import { strategize } from "./strategist";
 import { buildKnowledgeContext } from "./knowledge-base";
 import { generateVoice } from "./voice";
 import { guard } from "./guardian";
-import { extractDriverContext, formatDriverContext } from "./memory";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 interface OrchestratorInput {
   message: string;
@@ -22,36 +24,46 @@ export async function orchestrate({
   driverCity,
 }: OrchestratorInput): Promise<string> {
   try {
-    // 1. RISCO
-    const classification = classify(message, history);
+    // 1. CLASSIFICAÇÃO
+    const classification = await classify(message, history);
+
+    // BLOQUEIO DE RISCO
     if (classification.risk === "high") {
       return "Não vou seguir por esse caminho.";
     }
 
-    // 2. MEMÓRIA — contexto estruturado do histórico
-    const driverCtx = extractDriverContext(history);
-    const resolvedCity = driverCtx.city || driverCity || null;
+    // 2. ESTRATÉGIA (DECISÃO DO QUE FAZER)
+    const strategy = strategize(
+      message,
+      history.map((h) => h.content)
+    );
 
-    // 3. ESTRATÉGIA — stage-aware
-    const strategy = strategize(message, history, driverCtx);
+    // 3. CONTEXTO (CONHECIMENTO)
+    const knowledge = buildKnowledgeContext(
+      driverCity || null,
+      classification.persona
+    );
 
-    // 4. CONTEXTO DO SISTEMA
     const systemParts: string[] = [];
 
-    const driverContextStr = formatDriverContext(driverCtx);
-    if (driverContextStr) systemParts.push(driverContextStr);
+    // injeta contexto
+    if (knowledge) systemParts.push(knowledge);
 
-    // Knowledge base só quando relevante (não no greeting)
-    if (driverCtx.stage !== "greeting") {
-      const knowledge = buildKnowledgeContext(resolvedCity, driverCtx.stage);
-      if (knowledge) systemParts.push(knowledge);
-    }
+    // injeta leitura da pessoa (leve, sem poluir)
+    systemParts.push(`Perfil detectado: ${classification.persona}.`);
 
-    // 5. VOZ
-    const draft = await generateVoice(systemParts, history, message, strategy.type);
+    // 4. GERA RESPOSTA (COM ESTRATÉGIA)
+    const draft = await generateVoice(
+      systemParts,
+      history,
+      message,
+      strategy.type
+    );
 
-    // 6. GUARDIAN
-    return await guard(draft);
+    // 5. GUARDA (CORRIGE EXCESSO / ROBÔ)
+    const final = await guard(draft);
+
+    return final;
   } catch (err) {
     console.error("[orchestrator]", err);
     return "Deu erro aqui. Me chama de novo.";
