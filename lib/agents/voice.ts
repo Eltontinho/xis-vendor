@@ -23,6 +23,8 @@ Você mostra e deixa ele concluir.`;
 
 function applyStrategyHint(type: string): string {
   switch (type) {
+    case "saudacao":
+      return "É a primeira mensagem. Diga apenas 'Fala, Elton aqui.' e pergunte o nome do motorista. Nada mais além disso.";
     case "abrir_gap":
       return "Faça uma pergunta que leve o motorista a pensar no quanto sobra limpo no fim do dia.";
     case "explorar_dor":
