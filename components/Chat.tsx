@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import FounderCards from "./FounderCards";
+import { getDeviceId } from "@/lib/fingerprint";
 
 type Msg = {
   id: string;
@@ -30,6 +31,9 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
   const [loading, setLoading] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string>("");
+
+  useEffect(() => { getDeviceId().then(setDeviceId); }, []);
 
   const streamBufRef = useRef("");
   const rafPendingRef = useRef(false);
@@ -77,6 +81,7 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
           history: messages.map((m) => ({ role: m.role, content: m.content })),
           conversationId,
           driverCity,
+          deviceId,
         }),
       });
 

@@ -51,12 +51,14 @@ export async function POST(req: NextRequest) {
     history = [],
     driverCity,
     reservedNumber,
+    deviceId,
   } = body as {
     message: string;
     conversationId?: string;
     history: { role: "user" | "assistant"; content: string }[];
     driverCity?: string;
     reservedNumber?: number;
+    deviceId?: string;
   };
 
   if (!message?.trim()) {
@@ -75,6 +77,21 @@ export async function POST(req: NextRequest) {
     let convId = conversationId ?? null;
     let streamClosed = false;
     let watchdog: ReturnType<typeof setInterval> | null = null;
+
+    // Retoma conversa do mesmo dispositivo nas últimas 24h
+    if (!convId && deviceId) {
+      try {
+        const { data } = await supabaseAdmin
+          .from("vendor_conversations")
+          .select("id")
+          .eq("device_id", deviceId)
+          .gt("updated_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (data) convId = data.id as string;
+      } catch {}
+    }
 
     async function closeStream() {
       if (streamClosed) return;
@@ -141,7 +158,12 @@ export async function POST(req: NextRequest) {
           if (!convId) {
             const { data } = await supabaseAdmin
               .from("vendor_conversations")
-              .insert({ messages: [userMsg, axisMsg], current_state: "greeting" })
+              .insert({
+                messages: [userMsg, axisMsg],
+                current_state: "greeting",
+                ...(deviceId ? { device_id: deviceId } : {}),
+                updated_at: new Date().toISOString(),
+              })
               .select("id")
               .single();
             if (data) convId = data.id as string;
@@ -159,7 +181,10 @@ export async function POST(req: NextRequest) {
               ];
               await supabaseAdmin
                 .from("vendor_conversations")
-                .update({ messages: updated })
+                .update({
+                  messages: updated,
+                  updated_at: new Date().toISOString(),
+                })
                 .eq("id", convId);
             }
           }

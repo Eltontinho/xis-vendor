@@ -115,6 +115,11 @@ alter table drivers add column if not exists password_temp text;
 alter table drivers add column if not exists status        text not null default 'active';
 alter table drivers add column if not exists email         text;
 
+-- Device fingerprint para retomada de conversa
+ALTER TABLE vendor_conversations ADD COLUMN IF NOT EXISTS device_id text;
+ALTER TABLE vendor_conversations ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+CREATE INDEX IF NOT EXISTS idx_vendor_conversations_device_id ON vendor_conversations(device_id);
+
 -- Motoristas comuns (reembolsados ou pós-lançamento)
 create table if not exists common_drivers (
   id         uuid default gen_random_uuid() primary key,
