@@ -75,16 +75,16 @@ export async function POST(req: NextRequest) {
     let convId = conversationId ?? null;
     let streamClosed = false;
     let watchdog: ReturnType<typeof setInterval> | null = null;
-    let hasClub = false;
 
     async function closeStream() {
       if (streamClosed) return;
       streamClosed = true;
       if (watchdog) clearInterval(watchdog);
       try {
-        const meta = { conversationId: convId, ...(hasClub ? { cardDelay: 3000 } : {}) };
         await writer.write(
-          encoder.encode(`data: [META]${JSON.stringify(meta)}\n\n`)
+          encoder.encode(
+            `data: [META]${JSON.stringify({ conversationId: convId })}\n\n`
+          )
         );
       } catch {}
       try {
@@ -102,7 +102,6 @@ export async function POST(req: NextRequest) {
         perola: perola ?? null,
       });
 
-      hasClub = fullContent.includes("{{CLUBE_KRRO}}");
       const chunks = toSentenceChunks(fullContent);
       let lastWriteAt = Date.now();
 

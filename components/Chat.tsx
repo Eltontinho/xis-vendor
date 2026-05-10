@@ -24,24 +24,16 @@ function generateId() {
 
 export default function Chat({ driverCity }: { driverCity?: string }) {
   const [messages, setMessages] = useState<Msg[]>([
-    { id: "init", role: "assistant", content: "Sou o Elton, consultor da K-RRO." },
+    { id: "init", role: "assistant", content: "Oi! Sou o Elton, consultor da K-RRO. Qual é o seu nome?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setMessages((prev) => [...prev, { id: "init2", role: "assistant", content: "Qual é o seu nome?" }]);
-    }, 2000);
-    return () => clearTimeout(t);
-  }, []);
-
   const streamBufRef = useRef("");
   const rafPendingRef = useRef(false);
   const streamMsgIdRef = useRef("");
-  const cardDelayRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
 
   function scrollToBottom() {
@@ -108,9 +100,8 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
 
           if (data.startsWith("[META]")) {
             try {
-              const meta = JSON.parse(data.slice(6)) as { conversationId?: string; cardDelay?: number };
+              const meta = JSON.parse(data.slice(6)) as { conversationId?: string };
               if (meta.conversationId) { setConversationId(meta.conversationId); localConvId = meta.conversationId; }
-              if (meta.cardDelay) { cardDelayRef.current = meta.cardDelay; }
             } catch {}
             continue;
           }
@@ -136,10 +127,8 @@ export default function Chat({ driverCity }: { driverCity?: string }) {
       let finalText = fullText;
 
       if (fullText.includes("{{CLUBE_KRRO}}")) {
-        const delay = cardDelayRef.current || 0;
+        setShowCards(true);
         finalText = fullText.replace("{{CLUBE_KRRO}}", "").trim();
-        setTimeout(() => setShowCards(true), delay);
-        cardDelayRef.current = 0;
       }
 
       const loteMatch = finalText.match(/\[[^\]]*lote[^\]]*([1-3])[^\]]*\]/i);
