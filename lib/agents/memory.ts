@@ -34,7 +34,13 @@ export function extractDriverContext(
     ctx.stage = "understanding";
   }
 
-  // Name: detect user reply after Elton asks for name
+  // Name: first user reply after Elton asks for name, validated against assistant messages
+  const assistantWords = new Set(
+    history
+      .filter(h => h.role === "assistant")
+      .flatMap(h => h.content.toLowerCase().split(/\s+/))
+  );
+
   for (let i = 0; i < history.length - 1; i++) {
     const cur = history[i];
     const nxt = history[i + 1];
@@ -44,21 +50,29 @@ export function extractDriverContext(
       nxt.role === "user"
     ) {
       const candidate = nxt.content.trim();
-      if (candidate.split(" ").length <= 3 && !/\d/.test(candidate) && candidate.length < 25) {
+      const words = candidate.split(/\s+/);
+      if (
+        words.length >= 1 &&
+        words.length <= 3 &&
+        !/\d/.test(candidate) &&
+        candidate.length < 25 &&
+        !assistantWords.has(candidate.toLowerCase())
+      ) {
         ctx.name = candidate;
+        break;
       }
     }
   }
 
   // Car model
   const carMatch = allText.match(
-    /\b(onix|polo|hb20|argo|cronos|kicks|creta|virtus|nivus|corolla|civic|hilux|tucson|compass|renegade|sandero|logan|voyage|gol|ecosport|duster|t-cross|pulse)\b/i
+    /\b(onix|polo|hb20|argo|cronos|kicks|creta|virtus|nivus|corolla|civic|hilux|tucson|compass|renegade|sandero|logan|voyage|gol|ecosport|duster|t-cross|pulse|byd dolphin|dolphin)\b/i
   );
   if (carMatch) ctx.car = carMatch[1];
 
-  // City
+  // City — expanded list covering RS, SC, PR, SP, RJ + other capitals
   const cityMatch = allText.match(
-    /\b(porto alegre|florianópolis|florianopolis|curitiba|são paulo|sao paulo|rio de janeiro|belo horizonte|salvador|fortaleza|recife)\b/i
+    /\b(porto alegre|florianópolis|florianopolis|curitiba|são paulo|sao paulo|rio de janeiro|belo horizonte|salvador|fortaleza|recife|canoas|gravataí|gravatai|alvorada|viamão|viamao|novo hamburgo|são leopoldo|sao leopoldo|caxias do sul|pelotas|santa maria|esteio|osório|osorio|tramandaí|tramandai|imbé|imbe|xangri-lá|xangri la|palhoça|palhoca|são josé|sao jose|joinville|blumenau|itajaí|itajai|balneário camboriú|balneario camboriu|criciúma|criciuma|são josé dos pinhais|sao jose dos pinhais|colombo|araucária|araucaria|londrina|maringá|maringa|foz do iguaçu|foz do iguacu)\b/i
   );
   if (cityMatch) ctx.city = cityMatch[1];
 
@@ -89,5 +103,5 @@ export function formatDriverContext(ctx: DriverContext): string {
   if (ctx.avgTicket !== null) lines.push(`Ticket médio: R$${ctx.avgTicket}`);
   if (ctx.pains.length > 0) lines.push(`Dores reveladas: ${ctx.pains.join(" | ")}`);
   if (lines.length === 0) return "";
-  return `MOTORISTA (use isso — não invente nada além):\n${lines.join("\n")}`;
+  return `MOTORISTA (dados confirmados pelo próprio motorista):\n${lines.join("\n")}\nATENÇÃO: use APENAS os dados acima. Se um campo não está listado, NÃO INVENTE. Pergunte ao motorista.`;
 }
