@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       ?? phone;
 
     const LOCAL_TEST_IPS = ["::1", "127.0.0.1", "192.168.2.171"];
-    const sessionKey = LOCAL_TEST_IPS.includes(ip) ? phone : ip;
+    const sessionKey = phone;
 
     console.log(`[ELTON] request — phone: ${phone} ip: ${ip} sessionKey: ${sessionKey}`);
 
