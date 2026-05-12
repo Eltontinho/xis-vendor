@@ -97,6 +97,12 @@ export default function EltonChat() {
   async function sendText(text: string) {
     if (!text.trim() || loading) return;
 
+    if (text.trim() === "/reset") {
+      localStorage.clear();
+      window.location.reload();
+      return;
+    }
+
     const userMsg: Message = {
       id: generateId(),
       role: "user",
