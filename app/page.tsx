@@ -55,6 +55,7 @@ export default function EltonChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const planFollowUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/elton/vagas")
@@ -78,6 +79,22 @@ export default function EltonChat() {
           text: h.content,
           timestamp: Date.now() - (history.length - i) * 1000,
         }));
+        const planCardMap: Record<string, string> = {
+          platina: "/cards/clube-platina.jpg",
+          ouro:    "/cards/clube-ouro.jpg",
+          prata:   "/cards/clube-prata.jpg",
+        };
+        const lastPlan = (["platina", "ouro", "prata"] as const).find((p) =>
+          [...history].reverse().some((h) => h.role === "assistant" && h.content.toLowerCase().includes(p))
+        );
+        if (lastPlan) {
+          restored.push({
+            id: "hist_plan_card",
+            role: "elton",
+            image: planCardMap[lastPlan],
+            timestamp: Date.now() - 500,
+          });
+        }
         setMessages(restored);
       })
       .catch(() => {});
@@ -101,6 +118,11 @@ export default function EltonChat() {
       localStorage.clear();
       window.location.reload();
       return;
+    }
+
+    if (planFollowUpTimerRef.current) {
+      clearTimeout(planFollowUpTimerRef.current);
+      planFollowUpTimerRef.current = null;
     }
 
     const userMsg: Message = {
@@ -156,6 +178,25 @@ export default function EltonChat() {
               timestamp: Date.now(),
             }]);
           }, 10000);
+        }
+
+        const planCardImages = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg"];
+        if (data.image && planCardImages.includes(data.image)) {
+          if (planFollowUpTimerRef.current) clearTimeout(planFollowUpTimerRef.current);
+          const planFollowUps = [
+            "Quantas horas por dia você costuma rodar?",
+            "Você roda mais de dia ou à noite?",
+          ];
+          const planFollowUp = planFollowUps[Math.floor(Math.random() * planFollowUps.length)];
+          planFollowUpTimerRef.current = setTimeout(() => {
+            setMessages((prev) => [...prev, {
+              id: generateId(),
+              role: "elton" as const,
+              text: planFollowUp,
+              timestamp: Date.now(),
+            }]);
+            planFollowUpTimerRef.current = null;
+          }, 20000);
         }
       }
     } catch {

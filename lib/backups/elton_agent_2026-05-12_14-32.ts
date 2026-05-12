@@ -77,46 +77,10 @@ export async function eltonAgent(
     const rawText = response.choices?.[0]?.message?.content ?? "";
     const replyText = validateEltonOutput(rawText) ? rawText : ELTON_FALLBACK;
 
-    // Auto-gera link de pagamento quando todos os 4 campos do cadastro estão presentes
-    let finalReply = replyText;
-    const histAll = [...recentHistory, { role: "user", content: message }, { role: "assistant", content: replyText }];
-    const alreadyHasLink = lead.history.some((h) => h.role === "assistant" && h.content.includes("mercadopago.com"));
-    const collectedPhone = extractPhone(histAll);
-    const collectedName  = extractField(histAll, ["nome", "chama", "completo"]);
-    const collectedAddr  = extractField(histAll, ["endereço", "endereco", "cep", "rua", "bairro"]);
-    const hasPlate       = histAll.some((h) => h.role === "user" && /[A-Z]{3}[-\s]?[\dA-Z]\d{2}/i.test(h.content));
-
-    if (!alreadyHasLink && collectedPhone && collectedName && collectedAddr && hasPlate) {
-      const planLots: Record<string, string> = { platina: "lote1", ouro: "lote2", prata: "lote3" };
-      const planKey = (["platina", "ouro", "prata"] as const).find((p) =>
-        lead.history.some((h) => h.role === "assistant" && h.content.toLowerCase().includes(p))
-      ) ?? "platina";
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      try {
-        const reserveRes = await fetch(`${appUrl}/api/reserve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lot:            planLots[planKey],
-            conversation_id: phone,
-            driver_phone:   collectedPhone,
-            driver_name:    collectedName,
-            driver_city:    extractField(histAll, ["cidade", "dirige", "região"]),
-          }),
-        });
-        const reserveData = await reserveRes.json();
-        finalReply = reserveData.success && reserveData.checkout_url
-          ? `Aqui está seu link de pagamento: ${reserveData.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
-          : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.";
-      } catch {
-        finalReply = "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.";
-      }
-    }
-
     lead.history = [
       ...recentHistory,
-      { role: "user",      content: message    },
-      { role: "assistant", content: finalReply },
+      { role: "user",      content: message   },
+      { role: "assistant", content: replyText },
     ];
     lead.channel = channel;
 
@@ -139,7 +103,7 @@ export async function eltonAgent(
       }
     }
 
-    const replyLower = finalReply.toLowerCase();
+    const replyLower = replyText.toLowerCase();
     let image: string | undefined;
     if (lead.history.length === 2) {
       image = "/cards/krro-apresentacao.jpg";
@@ -151,7 +115,7 @@ export async function eltonAgent(
       image = "/cards/clube-prata.jpg";
     }
 
-    return { message: finalReply, stage: lead.stage, image };
+    return { message: replyText, stage: lead.stage, image };
   } catch (err) {
     console.error("[ELTON] agent error:", err);
     return {
