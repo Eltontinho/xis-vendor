@@ -121,6 +121,7 @@ export default function EltonChat() {
     if (text.trim() === "/reset") {
       localStorage.clear();
       localStorage.setItem("elton_reset", "true");
+      await fetch(`/api/elton/historico?phone=${sessionId}`, { method: "DELETE" });
       window.location.reload();
       return;
     }
