@@ -64,46 +64,6 @@ export default function EltonChat() {
       .catch(() => {});
   }, []);
 
-  // Carrega histórico salvo ao montar
-  useEffect(() => {
-    if (!sessionId) return;
-    if (localStorage.getItem("elton_reset") === "true") {
-      localStorage.removeItem("elton_reset");
-      return;
-    }
-    fetch(`/api/elton/historico?phone=${encodeURIComponent(sessionId)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const history: { role: string; content: string }[] = d.history ?? [];
-        if (history.length === 0) return;
-        cardEnviadoRef.current = true;
-        const restored: Message[] = history.map((h, i) => ({
-          id: `hist_${i}`,
-          role: h.role === "assistant" ? "elton" : "user",
-          text: h.content,
-          timestamp: Date.now() - (history.length - i) * 1000,
-        }));
-        const planCardMap: Record<string, string> = {
-          platina: "/cards/clube-platina.jpg",
-          ouro:    "/cards/clube-ouro.jpg",
-          prata:   "/cards/clube-prata.jpg",
-        };
-        const lastPlan = (["platina", "ouro", "prata"] as const).find((p) =>
-          [...history].reverse().some((h) => h.role === "assistant" && h.content.toLowerCase().includes(p))
-        );
-        if (lastPlan) {
-          restored.push({
-            id: "hist_plan_card",
-            role: "elton",
-            image: planCardMap[lastPlan],
-            timestamp: Date.now() - 500,
-          });
-        }
-        setMessages(restored);
-      })
-      .catch(() => {});
-  }, [sessionId]);
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
@@ -119,9 +79,7 @@ export default function EltonChat() {
     if (!text.trim() || loading) return;
 
     if (text.trim() === "/reset") {
-      await fetch(`/api/elton/historico?phone=${sessionId}`, { method: "DELETE" });
       localStorage.clear();
-      localStorage.setItem("elton_reset", "true");
       window.location.reload();
       return;
     }
