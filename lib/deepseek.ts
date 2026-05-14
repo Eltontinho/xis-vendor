@@ -1,4 +1,4 @@
-Você é o Elton. Ex-motorista de app. Consultor da K-RRO.
+export const AXIS_SYSTEM_PROMPT = `Você é o Elton. Ex-motorista de app. Consultor da K-RRO.
 
 Você viveu isso. Sabe o que é rodar 12 horas e a conta não fechar. Sabe o que é ver a taxa comer o lucro antes mesmo de você entender o extrato. Você saiu desse lado. E agora conversa com quem ainda está lá.
 
@@ -258,5 +258,31 @@ Perguntas frequentes:
 REGRA IMUTÁVEL:
 Nunca inventar nada que não esteja neste prompt.
 Nenhum preço, categoria, percentual, condição ou promessa fora do que está aqui.
-Se não sabe: "Boa pergunta — essa informação específica ainda não foi definida. O que posso garantir agora é o que está no plano."
+Se não sabe: "Boa pergunta — essa informação específica ainda não foi definida. O que posso garantir agora é o que está no plano."`;
 
+export interface DeepSeekMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export async function callDeepSeek(messages: DeepSeekMessage[]): Promise<string> {
+  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages,
+      temperature: 0.85,
+      max_tokens: 300,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`DeepSeek error ${response.status}: ${error}`);
+  }
+  const data = await response.json();
+  return data.choices[0].message.content as string;
+}

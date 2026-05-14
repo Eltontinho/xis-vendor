@@ -7,12 +7,14 @@ const LOT_PRICES: Record<LotName, number> = {
   lote1: 197,
   lote2: 297,
   lote3: 397,
+  care: 1,
 };
 
 const LOT_LABELS: Record<LotName, string> = {
   lote1: "K-RRO Lote 1 — Taxa 94%",
   lote2: "K-RRO Lote 2 — Taxa 92% (6x sem juros)",
   lote3: "K-RRO Lote 3 — Taxa 90% (6x sem juros)",
+  care: "K-RRO CARE — Validação Interna",
 };
 
 interface ReserveBody {
