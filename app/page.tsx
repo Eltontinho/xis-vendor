@@ -34,7 +34,7 @@ function getSessionId() {
 const INITIAL: Message = {
   id: "init",
   role: "elton",
-  text: "Opa! Sou o Elton, consultor da K-RRO. Qual é o seu nome?",
+  text: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?",
   timestamp: Date.now(),
 };
 
@@ -127,6 +127,15 @@ export default function EltonChat() {
             image: '/cards/krro-apresentacao.png',
             timestamp: Date.now(),
           }]);
+          planFollowUpTimerRef.current = setTimeout(() => {
+            setMessages(prev => [...prev, {
+              id: generateId(),
+              role: 'elton' as const,
+              text: 'O que chamou sua atenção?',
+              timestamp: Date.now(),
+            }]);
+            planFollowUpTimerRef.current = null;
+          }, 10000);
         }
 
         const planCardImages = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg"];
