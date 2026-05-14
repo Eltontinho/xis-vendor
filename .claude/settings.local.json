@@ -29,7 +29,9 @@
       "Bash(Get-Content C:\\\\Users\\\\tinho\\\\axis-vendor\\\\lib\\\\agents\\\\orchestrator.ts)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['choices'][0]['message']['content']\\)\")",
       "Bash(git clone *)",
-      "PowerShell(vercel deploy *)"
+      "PowerShell(vercel deploy *)",
+      "PowerShell(git *)",
+      "WebFetch(domain:axis-vendor.vercel.app)"
     ]
   }
 }

@@ -41,6 +41,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // CARE: plano interno — apenas gera preferência MP com R$1,00, sem tocar estoque nem criar lock
+    if (lot === "care") {
+      const careClient = new MercadoPagoConfig({
+        accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
+      });
+      const carePreference = new Preference(careClient);
+      const careAppUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const carePref = await carePreference.create({
+        body: {
+          items: [{
+            id: "care",
+            title: "K-RRO CARE — Validação Interna",
+            quantity: 1,
+            unit_price: 1,
+            currency_id: "BRL",
+          }],
+          payer: {
+            name: driver_name || undefined,
+            ...(driver_phone ? { phone: { number: driver_phone } } : {}),
+          },
+          external_reference: `${conversation_id}|care`,
+          notification_url: `${careAppUrl}/api/webhook/mpago`,
+          back_urls: {
+            success: `${careAppUrl}/pre-lancamento?pagamento=aprovado&value=1`,
+            failure: `${careAppUrl}/pre-lancamento?pagamento=falhou`,
+            pending: `${careAppUrl}/pre-lancamento?pagamento=pendente`,
+          },
+          auto_return: "approved",
+        },
+      });
+      const careUrl = carePref.init_point;
+      if (!careUrl) {
+        return NextResponse.json<ReserveResponse>(
+          { success: false, error: "Falha ao gerar link CARE" },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json<ReserveResponse>({ success: true, available: true, checkout_url: careUrl });
+    }
+
     // Resolve a cidade: usa a informada ou lê do registro da conversa
     let city = driver_city;
 

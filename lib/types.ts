@@ -15,7 +15,7 @@ export type ConversationState =
   | "payment_pending"
   | "completed";
 
-export type LotName = "lote1" | "lote2" | "lote3";
+export type LotName = "lote1" | "lote2" | "lote3" | "care";
 
 export type PaymentStatus = "none" | "pending" | "approved" | "rejected";
 
