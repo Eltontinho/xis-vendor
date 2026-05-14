@@ -84,9 +84,21 @@ export async function eltonAgent(
     const collectedPhone = extractPhone(histAll);
     const collectedName  = extractField(histAll, ["nome", "chama", "completo"]);
     const collectedAddr  = extractField(histAll, ["endereço", "endereco", "cep", "rua", "bairro"]);
-    const hasPlate       = histAll.some((h) => h.role === "user" && /[A-Z]{3}[-\s]?[\dA-Z]\d{2}/i.test(h.content));
+    // Padrão BR: AAA0000 (antigo) ou AAA0A00 (Mercosul)
+    const PLATE_RE = /\b[A-Z]{3}[-\s]?(?:\d[A-Z]\d{2}|\d{4})\b/i;
+    const plateMatch = histAll.reduce<string | null>((found, h) => {
+      if (found || h.role !== "user") return found;
+      const m = h.content.match(PLATE_RE);
+      return m ? m[0] : found;
+    }, null);
 
-    if (!alreadyHasLink && collectedPhone && collectedName && collectedAddr && hasPlate) {
+    const phoneDigits = (collectedPhone ?? "").replace(/\D/g, "");
+    const validPhone  = phoneDigits.length >= 10;
+    const validName   = collectedName.trim().split(/\s+/).length >= 2;
+    const validAddr   = collectedAddr.trim().length >= 10;
+    const validPlate  = !!plateMatch && PLATE_RE.test(plateMatch);
+
+    if (!alreadyHasLink && validPhone && validName && validAddr && validPlate) {
       const planLots: Record<string, string> = { platina: "lote1", ouro: "lote2", prata: "lote3" };
       const planKey = (["platina", "ouro", "prata"] as const).find((p) =>
         lead.history.some((h) => h.role === "assistant" && h.content.toLowerCase().includes(p))
