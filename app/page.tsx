@@ -113,7 +113,7 @@ export default function EltonChat() {
           role: "elton",
           text: data.message,
           // nunca inclui a imagem de apresentação via API — o timer client-side cuida disso
-          image: data.image === '/cards/krro-apresentacao.jpg' ? undefined : data.image,
+          image: data.image === '/cards/krro-apresentacao.png' ? undefined : data.image,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, eltonMsg]);
@@ -124,7 +124,7 @@ export default function EltonChat() {
           setMessages(prev => [...prev, {
             id: generateId(),
             role: 'elton',
-            image: '/cards/krro-apresentacao.jpg',
+            image: '/cards/krro-apresentacao.png',
             timestamp: Date.now(),
           }]);
         }
