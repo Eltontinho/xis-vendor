@@ -121,27 +121,12 @@ export default function EltonChat() {
 
         if (!cardEnviadoRef.current && apiCallCountRef.current === 1) {
           cardEnviadoRef.current = true;
-          const followUps = [
-            'Fez sentido pra você?',
-            'O que mais te chamou atenção?',
-            'Alguma coisa te surpreendeu?',
-            'O que achou?',
-          ];
-          const followUp = followUps[Math.floor(Math.random() * followUps.length)];
           setMessages(prev => [...prev, {
             id: generateId(),
             role: 'elton',
             image: '/cards/krro-apresentacao.jpg',
             timestamp: Date.now(),
           }]);
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              id: generateId(),
-              role: 'elton',
-              text: followUp,
-              timestamp: Date.now(),
-            }]);
-          }, 10000);
         }
 
         const planCardImages = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg"];
