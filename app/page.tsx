@@ -119,9 +119,9 @@ export default function EltonChat() {
     if (!text.trim() || loading) return;
 
     if (text.trim() === "/reset") {
+      await fetch(`/api/elton/historico?phone=${sessionId}`, { method: "DELETE" });
       localStorage.clear();
       localStorage.setItem("elton_reset", "true");
-      await fetch(`/api/elton/historico?phone=${sessionId}`, { method: "DELETE" });
       window.location.reload();
       return;
     }
