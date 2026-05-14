@@ -67,6 +67,10 @@ export default function EltonChat() {
   // Carrega histórico salvo ao montar
   useEffect(() => {
     if (!sessionId) return;
+    if (localStorage.getItem("elton_reset") === "true") {
+      localStorage.removeItem("elton_reset");
+      return;
+    }
     fetch(`/api/elton/historico?phone=${encodeURIComponent(sessionId)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -116,6 +120,7 @@ export default function EltonChat() {
 
     if (text.trim() === "/reset") {
       localStorage.clear();
+      localStorage.setItem("elton_reset", "true");
       window.location.reload();
       return;
     }
