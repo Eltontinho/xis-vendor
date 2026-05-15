@@ -180,6 +180,11 @@ export default function EltonChat() {
           "vou gerar seu link",
           "vou processar seu cadastro",
           "preciso do seu nome completo",
+          "seu nome completo",
+          "nome completo",
+          "qual seu nome",
+          "me passa seu nome",
+          "preciso do seu nome",
         ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
           const allMsgs = [...messages, eltonMsg];
