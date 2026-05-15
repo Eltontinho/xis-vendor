@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import CadastroForm from "@/components/CadastroForm";
 
 type Message = {
   id: string;
@@ -57,6 +58,18 @@ export default function EltonChat() {
   const chunksRef = useRef<Blob[]>([]);
   const planFollowUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [showForm, setShowForm] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ label: string; valor: string; lot: string }>({
+    label: "Platina", valor: "R$397/ano", lot: "lote1",
+  });
+
+  const PLAN_META: Record<string, { label: string; valor: string; lot: string }> = {
+    platina: { label: "Platina", valor: "R$397/ano", lot: "lote1" },
+    ouro:    { label: "Ouro",    valor: "R$347/ano", lot: "lote2" },
+    prata:   { label: "Prata",   valor: "R$297/ano", lot: "lote3" },
+  };
+
   useEffect(() => {
     fetch("/api/elton/vagas")
       .then((r) => r.json())
@@ -75,6 +88,43 @@ export default function EltonChat() {
     return () => window.removeEventListener("keydown", onKey);
   }, [modalImage]);
 
+  async function handleCadastroSubmit(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
+    setFormLoading(true);
+    try {
+      const res = await fetch("/api/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lot: selectedPlan.lot,
+          conversation_id: sessionId,
+          driver_phone: dados.telefone.replace(/\D/g, ""),
+          driver_name: dados.nome,
+          driver_city: dados.cidade,
+        }),
+      });
+      const data = await res.json();
+      setShowForm(false);
+      setMessages(prev => [...prev, {
+        id: generateId(),
+        role: "elton" as const,
+        text: data.success && data.checkout_url
+          ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
+          : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.",
+        timestamp: Date.now(),
+      }]);
+    } catch {
+      setShowForm(false);
+      setMessages(prev => [...prev, {
+        id: generateId(),
+        role: "elton" as const,
+        text: "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.",
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setFormLoading(false);
+    }
+  }
+
   async function sendText(text: string) {
     if (!text.trim() || loading) return;
 
@@ -83,6 +133,8 @@ export default function EltonChat() {
       window.location.reload();
       return;
     }
+
+    if (showForm) setShowForm(false);
 
     if (planFollowUpTimerRef.current) {
       clearTimeout(planFollowUpTimerRef.current);
@@ -118,6 +170,25 @@ export default function EltonChat() {
         };
         setMessages((prev) => [...prev, eltonMsg]);
         setTimeout(() => inputRef.current?.focus(), 50);
+
+        // Detecta frases que indicam coleta de dados de cadastro
+        const msgLower = data.message.toLowerCase();
+        const cadastroTriggers = [
+          "pode me passar seu nome completo",
+          "me passa seu nome completo",
+          "qual é o seu nome completo",
+          "vou gerar seu link",
+          "vou processar seu cadastro",
+          "preciso do seu nome completo",
+        ];
+        if (cadastroTriggers.some(t => msgLower.includes(t))) {
+          const allMsgs = [...messages, eltonMsg];
+          const planKey = (["platina", "ouro", "prata"] as const).find(p =>
+            allMsgs.some(m => m.role === "elton" && m.text?.toLowerCase().includes(p))
+          ) ?? "platina";
+          setSelectedPlan(PLAN_META[planKey]);
+          setShowForm(true);
+        }
 
         if (!cardEnviadoRef.current && apiCallCountRef.current === 1) {
           cardEnviadoRef.current = true;
@@ -374,6 +445,19 @@ export default function EltonChat() {
                       />
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {showForm && (
+              <div className="flex items-end justify-start px-1 py-2">
+                <div className="max-w-[90%] w-full">
+                  <CadastroForm
+                    plano={selectedPlan.label}
+                    valor={selectedPlan.valor}
+                    loading={formLoading}
+                    onSubmit={handleCadastroSubmit}
+                  />
                 </div>
               </div>
             )}
