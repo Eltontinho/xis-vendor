@@ -211,34 +211,11 @@ export default function EltonChat() {
             image: '/cards/krro-apresentacao.png',
             timestamp: Date.now(),
           }]);
-          planFollowUpTimerRef.current = setTimeout(() => {
-            setMessages(prev => [...prev, {
-              id: generateId(),
-              role: 'elton' as const,
-              text: 'O que chamou sua atenção?',
-              timestamp: Date.now(),
-            }]);
-            planFollowUpTimerRef.current = null;
-          }, 10000);
         }
 
         const planCardImages = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg"];
         if (data.image && planCardImages.includes(data.image)) {
           if (planFollowUpTimerRef.current) clearTimeout(planFollowUpTimerRef.current);
-          const planFollowUps = [
-            "Quantas horas por dia você costuma rodar?",
-            "Você roda mais de dia ou à noite?",
-          ];
-          const planFollowUp = planFollowUps[Math.floor(Math.random() * planFollowUps.length)];
-          planFollowUpTimerRef.current = setTimeout(() => {
-            setMessages((prev) => [...prev, {
-              id: generateId(),
-              role: "elton" as const,
-              text: planFollowUp,
-              timestamp: Date.now(),
-            }]);
-            planFollowUpTimerRef.current = null;
-          }, 20000);
         }
       }
     } catch {
