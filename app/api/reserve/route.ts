@@ -4,8 +4,8 @@ import { ReserveResponse, LotName } from "@/lib/types";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
 const LOT_PRICES: Record<LotName, number> = {
-  lote1: 197,
-  lote2: 297,
+  lote1: 297,
+  lote2: 347,
   lote3: 397,
   care: 1,
 };
@@ -95,55 +95,23 @@ export async function POST(req: NextRequest) {
       city = conv?.driver_city ?? "";
     }
 
-    // Verifica estoque. Se não tiver cidade, busca a primeira cidade disponível.
-    let resolvedCity = city;
-    let inventoryReserved = 0;
+    // Sempre busca sem filtro de cidade — seleciona qualquer registro do lote com vagas disponíveis
+    const { data: allInv } = await supabaseAdmin
+      .from("lot_inventory")
+      .select("city, total, reserved, sold")
+      .eq("lot", lot);
 
-    if (resolvedCity) {
-      const { data: inv, error: invErr } = await supabaseAdmin
-        .from("lot_inventory")
-        .select("total, reserved, sold")
-        .eq("city", resolvedCity)
-        .eq("lot", lot)
-        .single();
+    const avail = (allInv ?? []).find(r => r.total - r.reserved - r.sold > 0);
 
-      if (invErr || !inv) {
-        return NextResponse.json<ReserveResponse>(
-          { success: false, error: "Lote não encontrado para essa cidade" },
-          { status: 404 }
-        );
-      }
-
-      const available = inv.total - inv.reserved - inv.sold;
-      if (available <= 0) {
-        return NextResponse.json<ReserveResponse>(
-          { success: false, available: false, error: "Lote esgotado nessa cidade" },
-          { status: 409 }
-        );
-      }
-
-      inventoryReserved = inv.reserved;
-    } else {
-      // Sem cidade: busca qualquer cidade com vagas disponíveis
-      const { data: allInv } = await supabaseAdmin
-        .from("lot_inventory")
-        .select("city, total, reserved, sold")
-        .eq("lot", lot);
-
-      const avail = (allInv ?? []).find(
-        (r) => r.total - r.reserved - r.sold > 0
+    if (!avail) {
+      return NextResponse.json<ReserveResponse>(
+        { success: false, available: false, error: "Lote esgotado" },
+        { status: 409 }
       );
-
-      if (!avail) {
-        return NextResponse.json<ReserveResponse>(
-          { success: false, available: false, error: "Lote esgotado em todas as cidades" },
-          { status: 409 }
-        );
-      }
-
-      resolvedCity = avail.city;
-      inventoryReserved = avail.reserved;
     }
+
+    const resolvedCity = avail.city;
+    const inventoryReserved = avail.reserved;
 
     // Expira locks antigos do mesmo motorista (se tivermos o telefone)
     if (driver_phone) {
