@@ -77,53 +77,7 @@ export async function eltonAgent(
     const rawText = response.choices?.[0]?.message?.content ?? "";
     const replyText = validateEltonOutput(rawText) ? rawText : ELTON_FALLBACK;
 
-    // Auto-gera link de pagamento quando todos os 4 campos do cadastro estão presentes
-    let finalReply = replyText;
-    const histAll = [...recentHistory, { role: "user", content: message }, { role: "assistant", content: replyText }];
-    const alreadyHasLink = lead.history.some((h) => h.role === "assistant" && h.content.includes("mercadopago.com"));
-    const collectedPhone = extractPhone(histAll);
-    const collectedName  = extractField(histAll, ["nome", "chama", "completo"]);
-    const collectedAddr  = extractField(histAll, ["endereço", "endereco", "cep", "rua", "bairro"]);
-    // Padrão BR: AAA0000 (antigo) ou AAA0A00 (Mercosul)
-    const PLATE_RE = /\b[A-Z]{3}[-\s]?(?:\d[A-Z]\d{2}|\d{4})\b/i;
-    const plateMatch = histAll.reduce<string | null>((found, h) => {
-      if (found || h.role !== "user") return found;
-      const m = h.content.match(PLATE_RE);
-      return m ? m[0] : found;
-    }, null);
-
-    const phoneDigits = (collectedPhone ?? "").replace(/\D/g, "");
-    const validPhone  = phoneDigits.length >= 10;
-    const validName   = collectedName.trim().split(/\s+/).length >= 2;
-    const validAddr   = collectedAddr.trim().length >= 10;
-    const validPlate  = !!plateMatch && PLATE_RE.test(plateMatch);
-
-    if (!alreadyHasLink && validPhone && validName && validAddr && validPlate) {
-      const planLots: Record<string, string> = { platina: "lote1", ouro: "lote2", prata: "lote3" };
-      const planKey = (["platina", "ouro", "prata"] as const).find((p) =>
-        lead.history.some((h) => h.role === "assistant" && h.content.toLowerCase().includes(p))
-      ) ?? "platina";
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      try {
-        const reserveRes = await fetch(`${appUrl}/api/reserve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lot:            planLots[planKey],
-            conversation_id: phone,
-            driver_phone:   collectedPhone,
-            driver_name:    collectedName,
-            driver_city:    extractField(histAll, ["cidade", "dirige", "região"]),
-          }),
-        });
-        const reserveData = await reserveRes.json();
-        finalReply = reserveData.success && reserveData.checkout_url
-          ? `Aqui está seu link de pagamento: ${reserveData.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
-          : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.";
-      } catch {
-        finalReply = "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.";
-      }
-    }
+    const finalReply = replyText;
 
     lead.history = [
       ...recentHistory,
