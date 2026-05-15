@@ -41,6 +41,8 @@ export async function eltonAgent(
   channel: "web" | "whatsapp" = "web"
 ): Promise<{ message: string; stage: LeadStage; image?: string }> {
   try {
+    console.log("[ELTON] iniciando agent para phone:", phone);
+    console.log("[ELTON] DEEPSEEK_API_KEY presente:", !!process.env.DEEPSEEK_API_KEY);
     let lead: Lead = (await getLead(phone)) ?? {
       phone,
       stage:     LeadStage.NOVO,
@@ -119,10 +121,7 @@ export async function eltonAgent(
 
     return { message: finalReply, stage: lead.stage, image };
   } catch (err) {
-    console.error("[ELTON] agent error:", err);
-    return {
-      message: "Sistema temporariamente indisponível. Tente novamente.",
-      stage:   LeadStage.NOVO,
-    };
+    console.error("[ELTON] agent error completo:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    return { message: "Sistema temporariamente indisponível. Tente novamente.", stage: LeadStage.NOVO };
   }
 }
