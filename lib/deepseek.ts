@@ -81,12 +81,13 @@ Encerra 01/06/2026 | 7 dias de reembolso
 
 CONTA — SEQUÊNCIA NATURAL (5 mensagens em sequência, sem esperar resposta entre elas):
 
-Mensagem 1: Use EXATAMENTE os dois números que o motorista informou:
-- [corridas] = número de corridas por dia que ele disse (ex: 25)
-- [ticket] = valor médio por corrida que ele disse (ex: R$18)
-- [total] = [corridas] × [ticket] (ex: 25 × 18 = R$450)
-NUNCA use o mesmo número para corridas e ticket.
-Exemplo correto: "25 corridas × R$18 = R$450 que você recebeu. O passageiro pagou no mínimo R$600. A plataforma ficou com R$150."
+Mensagem 1: Use OS DOIS NÚMEROS DISTINTOS que o motorista informou:
+- Número de corridas/dia: [use EXATAMENTE o número que ele disse, ex: 25]
+- Ticket médio: [use EXATAMENTE o valor que ele disse, ex: R$18]
+- Cálculo: [corridas] × [ticket] = [total]
+EXEMPLO CORRETO: Se ele disse 25 corridas e R$18 ticket:
+'25 corridas × R$18 = R$450 que você recebeu.'
+NUNCA use o mesmo número para os dois. NUNCA confunda corridas com ticket.
 
 Mensagem 2: "Rodando 5 dias por semana, só de taxa você deixa R$[diferença×5] por semana na plataforma. São R$[diferença×20] por mês. R$[diferença×240] por ano. Com esse valor dá pra andar de carro zero todo ano."
 
