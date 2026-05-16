@@ -95,7 +95,6 @@ export default function EltonChat() {
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const cardApresentacaoEnviadoRef = useRef(false);
-  const followUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiCallCountRef = useRef(0);
   const corridasRef = useRef<number | null>(null);
   const contaPadariaFiredRef = useRef(false);
@@ -208,8 +207,7 @@ export default function EltonChat() {
         }),
       });
       const data = await res.json();
-      console.log("[RESERVE] lot:", selectedPlan.lot);
-      console.log("[RESERVE] response:", data);
+      console.log("[RESERVE]", JSON.stringify(data));
       setShowForm(false);
       typeMessage(generateId(), data.success && data.checkout_url
         ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
@@ -235,7 +233,6 @@ export default function EltonChat() {
     }
 
     if (showForm) setShowForm(false);
-    if (followUpTimerRef.current) { clearTimeout(followUpTimerRef.current); followUpTimerRef.current = null; }
 
     const lastEltonText = [...messages].reverse().find(m => m.role === "elton" && m.text)?.text ?? "";
     const isCorridasCtx = detectsCorridasQuestion(lastEltonText);
@@ -286,7 +283,9 @@ export default function EltonChat() {
           const msgLower = data.message.toLowerCase();
           const cadastroTriggers = [
             "vou gerar seu link", "vou processar seu cadastro",
-            "formulário", "garantir sua vaga", "seu número de membro",
+            "preciso do seu nome completo", "pode me passar seu nome completo",
+            "me passa seu nome completo", "seguir com o cadastro",
+            "formulário", "seu número de membro", "garantir sua vaga", "whatsapp com ddd",
           ];
           if (cadastroTriggers.some(t => msgLower.includes(t))) {
             const allMsgs = [...messages, eltonMsg];
@@ -300,7 +299,6 @@ export default function EltonChat() {
           }
 
           // Presentation card: 2s after first API response
-          // M3 follow-up: única mensagem automática permitida, 10s após o card, cancelada se usuário responder
           if (!cardApresentacaoEnviadoRef.current && apiCallCountRef.current === 1) {
             cardApresentacaoEnviadoRef.current = true;
             setTimeout(() => {
@@ -309,10 +307,6 @@ export default function EltonChat() {
                 image: "/cards/krro-apresentacao.png",
                 timestamp: Date.now(),
               }]);
-              followUpTimerRef.current = setTimeout(() => {
-                followUpTimerRef.current = null;
-                typeMessage(generateId(), "O que você viu até agora que faz sentido pra você?", Date.now());
-              }, 10000);
             }, 2000);
           }
 

@@ -16,13 +16,13 @@ export default function CardModal({ src, onClose }: Props) {
         src={src}
         alt=""
         className="object-contain"
-        style={{ maxWidth: "95vw", maxHeight: "95vh" }}
+        style={{ maxWidth: "100vw", maxHeight: "100vh" }}
         onClick={(e) => e.stopPropagation()}
       />
       <button
         onClick={onClose}
         className="absolute top-4 right-4 flex items-center justify-center rounded-full text-white font-light"
-        style={{ width: 40, height: 40, background: "rgba(255,255,255,0.15)", fontSize: 20 }}
+        style={{ width: 44, height: 44, background: "rgba(255,255,255,0.15)", fontSize: 20 }}
         aria-label="Fechar"
       >
         ✕
