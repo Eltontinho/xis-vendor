@@ -369,13 +369,13 @@ export default function EltonChat() {
 
         const msgLower = data.message.toLowerCase();
 
-        // K-RRO card: após primeiro response (nome)
+        // Card 2: após primeiro response (nome) → cardk-rrobranco.png no chat
         if (apiCallCountRef.current === 1 && !cardKRROSentRef.current) {
           cardKRROSentRef.current = true;
           setFlowStep("card");
           scheduleTimer(() => {
             if (flowStepRef.current === "card") {
-              addImageCard("/cards/krro-apresentacao.png");
+              addImageCard("/cards/cardk-rrobranco.png");
               // 10s depois: pergunta automática
               scheduleTimer(() => {
                 if (flowStepRef.current === "card") {
