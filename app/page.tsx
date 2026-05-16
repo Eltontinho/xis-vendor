@@ -100,6 +100,8 @@ export default function EltonChat() {
   const apiCallCountRef = useRef(0);
   const corridasRef = useRef<number | null>(null);
   const contaPadariaFiredRef = useRef(false);
+  const clubeCardEnviadoRef = useRef(false);
+  const planCardEnviadoRef = useRef(false);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -207,11 +209,15 @@ export default function EltonChat() {
         }),
       });
       const data = await res.json();
+      console.log("[RESERVE]", JSON.stringify(data));
       setShowForm(false);
       typeMessage(generateId(), data.success && data.checkout_url
         ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
+        : data.error
+        ? `Erro ao gerar o link: ${data.error}. Me chama que resolvo.`
         : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
-    } catch {
+    } catch (err) {
+      console.error("[CADASTRO]", err);
       setShowForm(false);
       typeMessage(generateId(), "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } finally {
@@ -313,7 +319,8 @@ export default function EltonChat() {
           }
 
           // Clube card trigger
-          if (data.message.includes("Vou te mostrar o Clube K-RRO")) {
+          if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardEnviadoRef.current) {
+            clubeCardEnviadoRef.current = true;
             setTimeout(() => {
               setMessages(prev => [...prev, {
                 id: generateId(), role: "elton" as const,
@@ -325,7 +332,9 @@ export default function EltonChat() {
 
           // Plan card trigger
           const hasPrice = data.message.includes("R$397") || data.message.includes("R$347") || data.message.includes("R$297");
-          if (hasPrice) {
+          const hasROI = data.message.includes("94%") || data.message.includes("92%") || data.message.includes("90%");
+          const isObjecao = data.message.toLowerCase().includes("objeção") || isPadariaContent(data.message);
+          if (hasPrice && hasROI && !isObjecao && !planCardEnviadoRef.current) {
             const planImg = data.message.includes("Platina")
               ? "/cards/clube-platina.jpg"
               : data.message.includes("Ouro")
@@ -334,6 +343,7 @@ export default function EltonChat() {
               ? "/cards/clube-prata.jpg"
               : null;
             if (planImg) {
+              planCardEnviadoRef.current = true;
               const src = planImg;
               setTimeout(() => {
                 setMessages(prev => [...prev, {
