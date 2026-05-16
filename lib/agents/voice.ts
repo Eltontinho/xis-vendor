@@ -1,4 +1,6 @@
-import { AXIS_SYSTEM_PROMPT } from "@/lib/deepseek";
+import { getEltonSystemPrompt } from "@/lib/elton/system";
+
+const AXIS_SYSTEM_PROMPT = getEltonSystemPrompt(600);
 
 interface VoiceMessage {
   role: "system" | "user" | "assistant";
