@@ -94,9 +94,7 @@ export default function EltonChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const planFollowUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardEnviadoRef = useRef(false);
-  const cardFollowUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiCallCountRef = useRef(0);
   const corridasRef = useRef<number | null>(null);
   const contaPadariaFiredRef = useRef(false);
@@ -217,7 +215,7 @@ export default function EltonChat() {
         ? `Erro ao gerar o link: ${data.error}. Me chama que resolvo.`
         : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } catch (err) {
-      console.error("[CADASTRO]", err);
+      console.error("[CADASTRO ERRO]", err);
       setShowForm(false);
       typeMessage(generateId(), "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } finally {
@@ -235,7 +233,6 @@ export default function EltonChat() {
     }
 
     if (showForm) setShowForm(false);
-    if (planFollowUpTimerRef.current) { clearTimeout(planFollowUpTimerRef.current); planFollowUpTimerRef.current = null; }
 
     const lastEltonText = [...messages].reverse().find(m => m.role === "elton" && m.text)?.text ?? "";
     const isCorridasCtx = detectsCorridasQuestion(lastEltonText);
@@ -285,11 +282,9 @@ export default function EltonChat() {
           // Detect cadastro triggers
           const msgLower = data.message.toLowerCase();
           const cadastroTriggers = [
-            "pode me passar seu nome completo", "me passa seu nome completo", "qual é o seu nome completo",
             "vou gerar seu link", "vou processar seu cadastro", "preciso do seu nome completo",
-            "me passa os dados", "vou precisar de alguns dados", "para gerar seu cadastro",
-            "seguir com o cadastro", "dados para gerar", "whatsapp com ddd", "preciso de alguns dados",
-            "formulário", "seu número de membro", "garantir sua vaga",
+            "pode me passar seu nome completo", "me passa seu nome completo",
+            "seguir com o cadastro", "formulário", "seu número de membro", "garantir sua vaga",
           ];
           if (cadastroTriggers.some(t => msgLower.includes(t))) {
             const allMsgs = [...messages, eltonMsg];
@@ -302,7 +297,7 @@ export default function EltonChat() {
             setShowForm(true);
           }
 
-          // Presentation card: 2s after first API response, then 10s follow-up
+          // Presentation card: 2s after first API response
           if (!cardEnviadoRef.current && apiCallCountRef.current === 1) {
             cardEnviadoRef.current = true;
             setTimeout(() => {
@@ -311,10 +306,6 @@ export default function EltonChat() {
                 image: "/cards/krro-apresentacao.png",
                 timestamp: Date.now(),
               }]);
-              cardFollowUpTimerRef.current = setTimeout(() => {
-                typeMessage(generateId(), "O que você viu até agora que faz sentido pra você?", Date.now());
-                cardFollowUpTimerRef.current = null;
-              }, 10000);
             }, 2000);
           }
 
@@ -355,11 +346,6 @@ export default function EltonChat() {
             }
           }
 
-          // Clear follow-up timer if club card arrives
-          const clubCards = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg", "/cards/clube-todos.png"];
-          if (data.image && clubCards.includes(data.image)) {
-            if (planFollowUpTimerRef.current) clearTimeout(planFollowUpTimerRef.current);
-          }
         }
       }
     } catch {
