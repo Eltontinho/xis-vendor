@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import CadastroForm from "@/components/CadastroForm";
-import CardEntrada from "@/components/CardEntrada";
 import CardModal from "@/components/CardModal";
 
 type Message = {
@@ -77,7 +76,9 @@ export default function EltonChat() {
   const [vagas, setVagas] = useState(42);
   const [isRecording, setIsRecording] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [showCardEntrada, setShowCardEntrada] = useState(true);
+  const [showCardEntrada, setShowCardEntrada] = useState<boolean>(() =>
+    typeof window !== "undefined" ? !localStorage.getItem("krro_entrada_visto") : false
+  );
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
@@ -113,7 +114,7 @@ export default function EltonChat() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (showCardEntrada) setShowCardEntrada(false);
+      if (showCardEntrada) { setShowCardEntrada(false); localStorage.setItem("krro_entrada_visto", "1"); }
       else if (modalImage) setModalImage(null);
     };
     window.addEventListener("keydown", onKey);
@@ -167,7 +168,7 @@ export default function EltonChat() {
     await wait(800);
     setMessages(prev => [...prev, {
       id: generateId(), role: "elton" as const,
-      image: "/cards/clube-todos.jpg",
+      image: "/cards/clube-todos.png",
       timestamp: Date.now(),
     }]);
 
@@ -307,8 +308,41 @@ export default function EltonChat() {
             }, 2000);
           }
 
+          // Clube card trigger
+          if (data.message.includes("Vou te mostrar o Clube K-RRO")) {
+            setTimeout(() => {
+              setMessages(prev => [...prev, {
+                id: generateId(), role: "elton" as const,
+                image: "/cards/clube-todos.png",
+                timestamp: Date.now(),
+              }]);
+            }, 800);
+          }
+
+          // Plan card trigger
+          const hasPrice = data.message.includes("R$397") || data.message.includes("R$347") || data.message.includes("R$297");
+          if (hasPrice) {
+            const planImg = data.message.includes("Platina")
+              ? "/cards/clube-platina.jpg"
+              : data.message.includes("Ouro")
+              ? "/cards/clube-ouro.jpg"
+              : data.message.includes("Prata")
+              ? "/cards/clube-prata.jpg"
+              : null;
+            if (planImg) {
+              const src = planImg;
+              setTimeout(() => {
+                setMessages(prev => [...prev, {
+                  id: generateId(), role: "elton" as const,
+                  image: src,
+                  timestamp: Date.now(),
+                }]);
+              }, 600);
+            }
+          }
+
           // Clear follow-up timer if club card arrives
-          const clubCards = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg", "/cards/clube-todos.jpg"];
+          const clubCards = ["/cards/clube-platina.jpg", "/cards/clube-ouro.jpg", "/cards/clube-prata.jpg", "/cards/clube-todos.png"];
           if (data.image && clubCards.includes(data.image)) {
             if (planFollowUpTimerRef.current) clearTimeout(planFollowUpTimerRef.current);
           }
@@ -364,7 +398,15 @@ export default function EltonChat() {
         .page-online { animation: pulse-green 2s infinite; }
       `}</style>
 
-      {showCardEntrada && <CardEntrada onClose={() => setShowCardEntrada(false)} />}
+      {showCardEntrada && (
+        <CardModal
+          src="/cards/krro-apresentacao.png"
+          onClose={() => {
+            setShowCardEntrada(false);
+            localStorage.setItem("krro_entrada_visto", "1");
+          }}
+        />
+      )}
 
       <div
         className="relative w-full max-w-[480px] flex flex-col overflow-hidden"

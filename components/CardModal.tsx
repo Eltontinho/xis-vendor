@@ -8,21 +8,21 @@ interface Props {
 export default function CardModal({ src, onClose }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.95)" }}
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.95)", zIndex: 9999 }}
       onClick={onClose}
     >
       <img
         src={src}
         alt=""
         className="object-contain"
-        style={{ maxWidth: "100vw", maxHeight: "100vh" }}
+        style={{ maxWidth: "95vw", maxHeight: "95vh" }}
         onClick={(e) => e.stopPropagation()}
       />
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 flex items-center justify-center w-9 h-9 rounded-full text-white text-lg font-light"
-        style={{ backgroundColor: "rgba(0,102,255,0.7)" }}
+        className="absolute top-4 right-4 flex items-center justify-center rounded-full text-white font-light"
+        style={{ width: 40, height: 40, background: "rgba(255,255,255,0.15)", fontSize: 20 }}
         aria-label="Fechar"
       >
         ✕
