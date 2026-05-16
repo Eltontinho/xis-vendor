@@ -14,8 +14,8 @@ type Message = {
 };
 
 const formatTime = (ts: number) => {
-  const [h, m] = new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }).split(":");
-  return `${h}:${m}`;
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
 function generateId() {
@@ -23,6 +23,7 @@ function generateId() {
 }
 
 function getSessionId() {
+  if (typeof window === "undefined") return `ssr_${Date.now()}`;
   const key = "elton_session";
   let id = localStorage.getItem(key);
   if (!id) {
@@ -31,35 +32,6 @@ function getSessionId() {
   }
   return id;
 }
-
-function extractNumber(text: string): number | null {
-  const m = text.match(/(?:r\$\s*)?(\d+(?:[.,]\d+)?)/i);
-  if (!m) return null;
-  return parseFloat(m[1].replace(",", "."));
-}
-
-function detectsCorridasQuestion(text: string): boolean {
-  const lc = text.toLowerCase();
-  return ["corridas por dia", "corridas você faz", "quantas corridas", "por dia você roda", "faz por dia", "corridas faz", "por dia você faz"].some(k => lc.includes(k));
-}
-
-function detectsTicketQuestion(text: string): boolean {
-  const lc = text.toLowerCase();
-  return ["ticket médio", "ticket medio", "valor médio", "recebe por corrida", "por corrida em média", "em média por corrida", "média que recebe", "corrida em média"].some(k => lc.includes(k));
-}
-
-function isPadariaContent(text: string): boolean {
-  return /que você recebeu|o passageiro pagou|você receberia|o plano se paga em/i.test(text);
-}
-
-const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-
-const INITIAL: Message = {
-  id: "init",
-  role: "elton",
-  text: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?",
-  timestamp: Date.now(),
-};
 
 const PLAN_META = {
   platina: { label: "Platina", valor: "R$397/ano", lot: "lote3" },
@@ -70,7 +42,7 @@ const PLAN_META = {
 type PlanKey = keyof typeof PLAN_META;
 
 export default function EltonChat() {
-  const [messages, setMessages] = useState<Message[]>([INITIAL]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [vagas, setVagas] = useState(42);
@@ -82,7 +54,6 @@ export default function EltonChat() {
   const [formLoading, setFormLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
   const [membroNumero, setMembroNumero] = useState<string | null>(null);
-  const [padariaActive, setParadaiaActive] = useState(false);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -92,13 +63,13 @@ export default function EltonChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const cardApresentacaoEnviadoRef = useRef(false);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const apiCallCountRef = useRef(0);
-  const corridasRef = useRef<number | null>(null);
-  const contaPadariaFiredRef = useRef(false);
+  const cardKRROEnviadoRef = useRef(false);
   const cardClubeEnviadoRef = useRef(false);
   const cardPlanoEnviadoRef = useRef(false);
-  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const followUpKRRORef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const followUpClubeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/elton/vagas")
@@ -109,12 +80,12 @@ export default function EltonChat() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, padariaActive]);
+  }, [messages, loading]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (showIntroCard) { setShowIntroCard(false); }
+      if (showIntroCard) handleIntroClose();
       else if (modalImage) setModalImage(null);
     };
     window.addEventListener("keydown", onKey);
@@ -122,7 +93,11 @@ export default function EltonChat() {
   }, [showIntroCard, modalImage]);
 
   useEffect(() => {
-    return () => { if (typingIntervalRef.current) clearInterval(typingIntervalRef.current); };
+    return () => {
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
+      if (followUpKRRORef.current) clearTimeout(followUpKRRORef.current);
+      if (followUpClubeRef.current) clearTimeout(followUpClubeRef.current);
+    };
   }, []);
 
   function typeMessage(id: string, fullText: string, timestamp: number, image?: string): Promise<void> {
@@ -147,6 +122,18 @@ export default function EltonChat() {
     });
   }
 
+  function cancelFollowUps() {
+    if (followUpKRRORef.current) { clearTimeout(followUpKRRORef.current); followUpKRRORef.current = null; }
+    if (followUpClubeRef.current) { clearTimeout(followUpClubeRef.current); followUpClubeRef.current = null; }
+  }
+
+  function handleIntroClose() {
+    setShowIntroCard(false);
+    setTimeout(() => {
+      typeMessage(generateId(), "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?", Date.now());
+    }, 300);
+  }
+
   async function fetchNextNumber(lot: string) {
     try {
       const res = await fetch(`/api/reserve/next-number?lot=${lot}`);
@@ -155,39 +142,6 @@ export default function EltonChat() {
       const suffix = lot === "lote3" ? "PL" : lot === "lote2" ? "OU" : "PR";
       setMembroNumero(`${String(num).padStart(3, "0")}${suffix}`);
     } catch { /* silently ignore */ }
-  }
-
-  async function showContaPadaria(corridas: number, ticket: number) {
-    setParadaiaActive(true);
-    contaPadariaFiredRef.current = true;
-
-    const recebido = corridas * ticket;
-    const bruto = recebido / 0.75;
-    const plataforma = bruto - recebido;
-    const mensal = recebido * 20;
-    const anual = recebido * 240;
-
-    const brl = (v: number) =>
-      v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    await wait(1500);
-    await typeMessage(generateId(), `${corridas} corridas × R$${brl(ticket)} = R$${brl(recebido)} que você recebeu. O passageiro pagou no mínimo R$${brl(bruto)}. A plataforma ficou com R$${brl(plataforma)}.`, Date.now());
-
-    await wait(2000);
-    await typeMessage(generateId(), `Rodando 5 dias por semana nessa média, você fatura R$${Math.round(mensal).toLocaleString("pt-BR")} por mês. São R$${Math.round(anual).toLocaleString("pt-BR")} por ano. Com isso, dá pra andar de carro zero todo ano.`, Date.now());
-
-    await wait(2000);
-    await typeMessage(generateId(), "Vou te mostrar o Clube K-RRO — quero que você esteja sempre de carro zero.", Date.now());
-
-    await wait(800);
-    setMessages(prev => [...prev, {
-      id: generateId(), role: "elton" as const,
-      image: "/cards/clube-todos.png",
-      timestamp: Date.now(),
-    }]);
-
-    setParadaiaActive(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   async function handleCadastroSubmit(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
@@ -222,7 +176,7 @@ export default function EltonChat() {
   }
 
   async function sendText(text: string) {
-    if (!text.trim() || loading || padariaActive || typingMessageId) return;
+    if (!text.trim() || loading || typingMessageId !== null) return;
 
     if (text.trim() === "/reset") {
       localStorage.clear();
@@ -230,25 +184,13 @@ export default function EltonChat() {
       return;
     }
 
+    cancelFollowUps();
     if (showForm) setShowForm(false);
-
-    const lastEltonText = [...messages].reverse().find(m => m.role === "elton" && m.text)?.text ?? "";
-    const isCorridasCtx = detectsCorridasQuestion(lastEltonText);
-    const isTicketCtx = detectsTicketQuestion(lastEltonText);
-
-    if (isCorridasCtx) {
-      const n = extractNumber(text.trim());
-      if (n && n > 0 && n < 200) corridasRef.current = n;
-    }
-
-    const isTicketResponse = isTicketCtx && corridasRef.current != null && !contaPadariaFiredRef.current;
 
     const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
-
-    let padariaTriggered = false;
 
     try {
       const res = await fetch("/api/elton", {
@@ -260,95 +202,80 @@ export default function EltonChat() {
 
       if (data.message) {
         apiCallCountRef.current += 1;
+        typeMessage(generateId(), data.message, Date.now());
 
-        if (isTicketResponse) {
-          padariaTriggered = true;
-          const ticketNum = extractNumber(text.trim()) ?? 25;
-          showContaPadaria(corridasRef.current!, ticketNum);
-        } else if (contaPadariaFiredRef.current && isPadariaContent(data.message)) {
-          // Padaria already done client-side — suppress stale agent turns
-        } else {
-          const eltonMsg: Message = {
-            id: generateId(),
-            role: "elton",
-            text: data.message,
-            image: data.image === "/cards/apresentacao.png" ? undefined : data.image,
-            timestamp: Date.now(),
-          };
-          typeMessage(eltonMsg.id, data.message, eltonMsg.timestamp, eltonMsg.image);
+        const msgLower = data.message.toLowerCase();
 
-          // Detect cadastro triggers
-          const msgLower = data.message.toLowerCase();
-          const cadastroTriggers = ["formulário", "link", "garantir sua vaga"];
-          if (cadastroTriggers.some(t => msgLower.includes(t))) {
-            const allMsgs = [...messages, eltonMsg];
-            const planKey = (["platina", "ouro", "prata"] as const).find(p =>
-              allMsgs.some(m => m.role === "elton" && m.text?.toLowerCase().includes(p))
-            ) ?? "platina";
-            const plan = PLAN_META[planKey];
-            setSelectedPlan(plan);
-            fetchNextNumber(plan.lot);
-            setShowForm(true);
-          }
+        // Após primeiro response (nome): 2s → card K-RRO + 8s follow-up
+        if (apiCallCountRef.current === 1 && !cardKRROEnviadoRef.current) {
+          cardKRROEnviadoRef.current = true;
+          setTimeout(async () => {
+            await typeMessage(generateId(), "Vou te mostrar um pouquinho da K-RRO", Date.now());
+            setMessages(prev => [...prev, {
+              id: generateId(), role: "elton" as const,
+              image: "/cards/cardk-rrofundopreto.png",
+              timestamp: Date.now(),
+            }]);
+            followUpKRRORef.current = setTimeout(() => {
+              followUpKRRORef.current = null;
+              typeMessage(generateId(), "O que você achou do card?", Date.now());
+            }, 8000);
+          }, 2000);
+        }
 
-          // Presentation card: 2s after first API response
-          if (!cardApresentacaoEnviadoRef.current && apiCallCountRef.current === 1) {
-            cardApresentacaoEnviadoRef.current = true;
+        // Clube card: AI menciona Clube K-RRO → 800ms → card + 8s follow-up
+        if ((msgLower.includes("clube k-rro") || msgLower.includes("clube de benefícios")) && !cardClubeEnviadoRef.current) {
+          cardClubeEnviadoRef.current = true;
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              id: generateId(), role: "elton" as const,
+              image: "/cards/clube-todos.png",
+              timestamp: Date.now(),
+            }]);
+            followUpClubeRef.current = setTimeout(() => {
+              followUpClubeRef.current = null;
+              typeMessage(generateId(), "Qual dos planos fez mais sentido pra você?", Date.now());
+            }, 8000);
+          }, 800);
+        }
+
+        // Card do plano: AI confirma plano específico com preço e percentual
+        const hasPrice = data.message.includes("R$397") || data.message.includes("R$347") || data.message.includes("R$297");
+        const hasROI   = data.message.includes("94%")   || data.message.includes("92%")   || data.message.includes("90%");
+        if (hasPrice && hasROI && !cardPlanoEnviadoRef.current) {
+          const planImg = data.message.includes("Platina") ? "/cards/clube-platina.jpg"
+            : data.message.includes("Ouro") ? "/cards/clube-ouro.jpg"
+            : data.message.includes("Prata") ? "/cards/clube-prata.jpg" : null;
+          if (planImg) {
+            cardPlanoEnviadoRef.current = true;
+            const src = planImg;
             setTimeout(() => {
               setMessages(prev => [...prev, {
                 id: generateId(), role: "elton" as const,
-                image: "/cards/apresentacao.png",
+                image: src,
                 timestamp: Date.now(),
               }]);
-            }, 2000);
+            }, 600);
           }
+        }
 
-          // Clube card trigger
-          if (data.message.includes("Vou te mostrar o Clube K-RRO") && !cardClubeEnviadoRef.current) {
-            cardClubeEnviadoRef.current = true;
-            setTimeout(() => {
-              setMessages(prev => [...prev, {
-                id: generateId(), role: "elton" as const,
-                image: "/cards/clube-todos.png",
-                timestamp: Date.now(),
-              }]);
-            }, 800);
-          }
-
-          // Plan card trigger
-          const hasPrice = data.message.includes("R$397") || data.message.includes("R$347") || data.message.includes("R$297");
-          const hasROI = data.message.includes("94%") || data.message.includes("92%") || data.message.includes("90%");
-          const isObjecao = data.message.toLowerCase().includes("objeção") || isPadariaContent(data.message);
-          if (hasPrice && hasROI && !isObjecao && !cardPlanoEnviadoRef.current) {
-            const planImg = data.message.includes("Platina")
-              ? "/cards/clube-platina.jpg"
-              : data.message.includes("Ouro")
-              ? "/cards/clube-ouro.jpg"
-              : data.message.includes("Prata")
-              ? "/cards/clube-prata.jpg"
-              : null;
-            if (planImg) {
-              cardPlanoEnviadoRef.current = true;
-              const src = planImg;
-              setTimeout(() => {
-                setMessages(prev => [...prev, {
-                  id: generateId(), role: "elton" as const,
-                  image: src,
-                  timestamp: Date.now(),
-                }]);
-              }, 600);
-            }
-          }
-
+        // Formulário: abre quando Elton confirma plano e menciona cadastro
+        const cadastroTriggers = ["formulário", "garantir sua vaga", "número de membro", "reservar seu número"];
+        if (cadastroTriggers.some(t => msgLower.includes(t))) {
+          const planKey = (["platina", "ouro", "prata"] as const).find(p =>
+            msgLower.includes(p) || messages.some(m => m.role === "elton" && m.text?.toLowerCase().includes(p))
+          ) ?? "platina";
+          const plan = PLAN_META[planKey];
+          setSelectedPlan(plan);
+          fetchNextNumber(plan.lot);
+          setShowForm(true);
         }
       }
     } catch {
       typeMessage(generateId(), "Sistema instável. Tente novamente.", Date.now());
     } finally {
       setLoading(false);
-      if (!padariaTriggered) {
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }
 
@@ -357,9 +284,7 @@ export default function EltonChat() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
       const mr = new MediaRecorder(stream);
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
@@ -389,23 +314,27 @@ export default function EltonChat() {
         @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
       `}</style>
 
+      {/* Card de entrada — tela cheia ao carregar */}
       {showIntroCard && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "#000",
-          zIndex: 9999,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "#000",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <img
-            src="/cards/apresentacao.png"
+            src="/cards/krro-apresentação.png"
             alt="K-RRO"
             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
           />
           <button
-            onClick={() => setShowIntroCard(false)}
+            onClick={handleIntroClose}
+            aria-label="Fechar"
             style={{
               position: "absolute",
               top: 20,
@@ -415,6 +344,10 @@ export default function EltonChat() {
               color: "#fff",
               fontSize: 32,
               cursor: "pointer",
+              lineHeight: 1,
+              padding: "8px 12px",
+              minWidth: 44,
+              minHeight: 44,
             }}
           >
             ×
@@ -422,6 +355,7 @@ export default function EltonChat() {
         </div>
       )}
 
+      {/* Chat */}
       <div
         className="relative w-full max-w-[480px] flex flex-col overflow-hidden"
         style={{
@@ -464,7 +398,7 @@ export default function EltonChat() {
           )}
         </div>
 
-        {/* Message area */}
+        {/* Mensagens */}
         <div className="flex-1 relative overflow-hidden" style={{ backgroundColor: "#0a0a0f" }}>
           <img
             src="/logo-krro.png"
@@ -484,10 +418,7 @@ export default function EltonChat() {
               userSelect: "none",
             }}
           />
-          <div
-            className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2"
-            style={{ zIndex: 1 }}
-          >
+          <div className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2" style={{ zIndex: 1 }}>
             {messages.map((msg) => {
               const isElton = msg.role === "elton";
               return (
@@ -537,7 +468,7 @@ export default function EltonChat() {
               );
             })}
 
-            {(loading || padariaActive) && !typingMessageId && (
+            {loading && !typingMessageId && (
               <div className="flex items-end justify-start">
                 <div
                   className="px-4 py-3"
@@ -588,7 +519,7 @@ export default function EltonChat() {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); }
             }}
             placeholder="Digite uma mensagem"
-            disabled={loading || padariaActive || typingMessageId !== null}
+            disabled={loading || typingMessageId !== null || showIntroCard}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{ backgroundColor: "#0d1117", border: "1px solid #222", color: "#ffffff" }}
           />
@@ -596,7 +527,7 @@ export default function EltonChat() {
           {input.trim() ? (
             <button
               onClick={() => sendText(input)}
-              disabled={loading || padariaActive || typingMessageId !== null}
+              disabled={loading || typingMessageId !== null}
               aria-label="Enviar mensagem"
               className="page-send w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
               style={{ backgroundColor: "#0066ff" }}
