@@ -8,10 +8,31 @@ type Message = {
   id: string;
   role: "user" | "elton";
   text?: string;
-  audioUrl?: string;
   image?: string;
+  audioUrl?: string;
   timestamp: number;
 };
+
+type FlowStep =
+  | "nome"
+  | "card"
+  | "pergunta"
+  | "cidade"
+  | "carro"
+  | "ano"
+  | "corridas"
+  | "ticket"
+  | "conta"
+  | "clube"
+  | "plano"
+  | "form";
+
+const PLAN_META = {
+  platina: { label: "Platina", valor: "R$397/ano", lot: "lote3" },
+  ouro:    { label: "Ouro",    valor: "R$347/ano", lot: "lote2" },
+  prata:   { label: "Prata",   valor: "R$297/ano", lot: "lote1" },
+} as const;
+type PlanKey = keyof typeof PLAN_META;
 
 const formatTime = (ts: number) => {
   const d = new Date(ts);
@@ -33,13 +54,15 @@ function getSessionId() {
   return id;
 }
 
-const PLAN_META = {
-  platina: { label: "Platina", valor: "R$397/ano", lot: "lote3" },
-  ouro:    { label: "Ouro",    valor: "R$347/ano", lot: "lote2" },
-  prata:   { label: "Prata",   valor: "R$297/ano", lot: "lote1" },
-} as const;
+function extractNumber(text: string): number | null {
+  const clean = text.replace(/[Rr]\$\s*/g, "").replace(",", ".");
+  const match = clean.match(/\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : null;
+}
 
-type PlanKey = keyof typeof PLAN_META;
+function fmtBR(n: number): string {
+  return Math.round(n).toLocaleString("pt-BR");
+}
 
 export default function EltonChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,13 +70,15 @@ export default function EltonChat() {
   const [loading, setLoading] = useState(false);
   const [vagas, setVagas] = useState(42);
   const [isRecording, setIsRecording] = useState(false);
-  const [modalImage, setModalImage] = useState<string | null>(null);
+  const [modalSrc, setModalSrc] = useState<string | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
-  const [showIntroCard, setShowIntroCard] = useState(true);
+  const [showEntrada, setShowEntrada] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
   const [membroNumero, setMembroNumero] = useState<string | null>(null);
+  const [flowStep, setFlowStep] = useState<FlowStep>("nome");
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -64,11 +89,35 @@ export default function EltonChat() {
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const apiCallCountRef = useRef(0);
-  const cardKRROEnviadoRef = useRef(false);
-  const cardClubeEnviadoRef = useRef(false);
-  const cardPlanoEnviadoRef = useRef(false);
+  const cardKRROSentRef = useRef(false);
+  const clubCardRef = useRef(false);
+  const planCardRef = useRef(false);
+  const flowStepRef = useRef<FlowStep>("nome");
+  const corridasRef = useRef<number | null>(null);
+  const ticketRef = useRef<number | null>(null);
 
+  useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
+
+  // ─── Timer helpers ───────────────────────────────────────────────────────
+
+  function scheduleTimer(fn: () => void, delay: number): ReturnType<typeof setTimeout> {
+    const id = setTimeout(fn, delay);
+    pendingTimersRef.current.push(id);
+    return id;
+  }
+
+  function clearAllTimers() {
+    pendingTimersRef.current.forEach(clearTimeout);
+    pendingTimersRef.current = [];
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+  }
+
+  // ─── Effects ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch("/api/elton/vagas")
@@ -84,22 +133,27 @@ export default function EltonChat() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (showIntroCard) handleIntroClose();
-      else if (modalImage) setModalImage(null);
+      if (showEntrada) handleEntradaClose();
+      else if (modalSrc) setModalSrc(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showIntroCard, modalImage]);
+  }, [showEntrada, modalSrc]);
 
   useEffect(() => {
-    return () => { if (typingIntervalRef.current) clearInterval(typingIntervalRef.current); };
+    return () => clearAllTimers();
   }, []);
 
-  function typeMessage(id: string, fullText: string, timestamp: number, image?: string): Promise<void> {
+  // ─── Typing animation ────────────────────────────────────────────────────
+
+  function typeMessage(id: string, fullText: string, timestamp: number): Promise<void> {
     return new Promise(resolve => {
-      if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
       setTypingMessageId(id);
-      setMessages(prev => [...prev, { id, role: "elton" as const, text: "", image, timestamp }]);
+      setMessages(prev => [...prev, { id, role: "elton" as const, text: "", timestamp }]);
       if (!fullText) { setTypingMessageId(null); resolve(); return; }
       let i = 0;
       typingIntervalRef.current = setInterval(() => {
@@ -117,12 +171,23 @@ export default function EltonChat() {
     });
   }
 
-  function handleIntroClose() {
-    setShowIntroCard(false);
-    setTimeout(() => {
+  function addImageCard(src: string) {
+    setMessages(prev => [...prev, {
+      id: generateId(), role: "elton" as const, image: src, timestamp: Date.now(),
+    }]);
+  }
+
+  // ─── Entry modal ─────────────────────────────────────────────────────────
+
+  function handleEntradaClose() {
+    localStorage.setItem("krro_entrada_visto", "true");
+    setShowEntrada(false);
+    scheduleTimer(() => {
       typeMessage(generateId(), "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?", Date.now());
     }, 300);
   }
+
+  // ─── Reserve ─────────────────────────────────────────────────────────────
 
   async function fetchNextNumber(lot: string) {
     try {
@@ -131,11 +196,14 @@ export default function EltonChat() {
       const num = data.number ?? Math.floor(Math.random() * 90) + 10;
       const suffix = lot === "lote3" ? "PL" : lot === "lote2" ? "OU" : "PR";
       setMembroNumero(`${String(num).padStart(3, "0")}${suffix}`);
-    } catch { /* silently ignore */ }
+    } catch { /* ignore */ }
   }
 
-  async function handleCadastroSubmit(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
+  async function handleCadastroSubmit(dados: {
+    nome: string; telefone: string; email: string; placa: string; cidade: string;
+  }) {
     setFormLoading(true);
+    setFormError(null);
     try {
       const res = await fetch("/api/reserve", {
         method: "POST",
@@ -150,36 +218,130 @@ export default function EltonChat() {
       });
       const data = await res.json();
       console.log("[RESERVE]", data);
-      setShowForm(false);
-      typeMessage(generateId(), data.success && data.checkout_url
-        ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
-        : data.error
-        ? `Erro ao gerar o link: ${data.error}. Me chama que resolvo.`
-        : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
+
+      if (data.success === true && data.checkout_url) {
+        setShowForm(false);
+        setFormError(null);
+        typeMessage(
+          generateId(),
+          `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
+          Date.now()
+        );
+      } else {
+        const errMsg = data.error || "Falha ao gerar link. Tente novamente ou digite /reset.";
+        setFormError(errMsg);
+        typeMessage(generateId(), `Erro ao gerar o link: ${errMsg}`, Date.now());
+        // showForm permanece true para reenvio
+      }
     } catch (err) {
       console.error("[CADASTRO]", err);
-      setShowForm(false);
-      typeMessage(generateId(), "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
+      const errMsg = "Falha ao gerar link. Tente novamente ou digite /reset.";
+      setFormError(errMsg);
+      // showForm permanece true para reenvio
     } finally {
       setFormLoading(false);
     }
   }
 
+  // ─── Conta automática ────────────────────────────────────────────────────
+
+  function computeContaMsgs(): [string, string, string] {
+    const corridas = corridasRef.current ?? 20;
+    const ticket = ticketRef.current ?? 18;
+    const total = corridas * ticket;
+    const bruto = total / 0.75;
+    const diferenca = bruto - total;
+
+    const m1 = `${corridas} corridas × R$${ticket.toFixed(0)} = R$${fmtBR(total)} que você recebeu. O passageiro pagou no mínimo R$${fmtBR(bruto)}. A plataforma ficou com R$${fmtBR(diferenca)}.`;
+    const m2 = `Rodando 5 dias por semana, só de taxa você deixa R$${fmtBR(diferenca * 5)} por semana na plataforma. São R$${fmtBR(diferenca * 20)} por mês. R$${fmtBR(diferenca * 240)} por ano. Com esse valor dá pra andar de carro zero todo ano.`;
+    const m3 = "Vou te mostrar o Clube K-RRO — quero que você esteja sempre de carro zero.";
+
+    return [m1, m2, m3];
+  }
+
+  async function dispararConta() {
+    const [m1, m2, m3] = computeContaMsgs();
+
+    await typeMessage(generateId(), m1, Date.now());
+
+    await new Promise<void>(r => scheduleTimer(() => r(), 1400));
+    await typeMessage(generateId(), m2, Date.now());
+
+    await new Promise<void>(r => scheduleTimer(() => r(), 1400));
+    await typeMessage(generateId(), m3, Date.now());
+
+    await new Promise<void>(r => scheduleTimer(() => r(), 900));
+    if (!clubCardRef.current) {
+      clubCardRef.current = true;
+      addImageCard("/cards/clube-todos.png");
+    }
+    setFlowStep("clube");
+
+    await new Promise<void>(r => scheduleTimer(() => r(), 1100));
+    if (flowStepRef.current === "clube") {
+      setFlowStep("plano");
+      typeMessage(generateId(), "Qual plano faz mais sentido pra você?", Date.now());
+    }
+  }
+
+  // ─── Send text ───────────────────────────────────────────────────────────
+
   async function sendText(text: string) {
     if (!text.trim() || loading || typingMessageId !== null) return;
 
+    // /reset
     if (text.trim() === "/reset") {
+      clearAllTimers();
       localStorage.clear();
+      localStorage.setItem("elton_reset", "true");
+      clubCardRef.current = false;
+      planCardRef.current = false;
+      cardKRROSentRef.current = false;
+      corridasRef.current = null;
+      ticketRef.current = null;
+      setShowForm(false);
+      setModalSrc(null);
+      setFormError(null);
       window.location.reload();
       return;
     }
 
-    if (showForm) setShowForm(false);
+    const lowerText = text.trim().toLowerCase();
+
+    // Reenvio de card por solicitação
+    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo")) {
+      if (planCardRef.current) {
+        const img =
+          selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
+          : selectedPlan.label === "Ouro"  ? "/cards/clube-ouro.jpg"
+          : "/cards/clube-prata.jpg";
+        addImageCard(img);
+      } else if (clubCardRef.current) {
+        addImageCard("/cards/clube-todos.png");
+      }
+    }
+
+    if (showForm) {
+      setShowForm(false);
+      setFormError(null);
+    }
+
+    // Extração de números para conta
+    const currentStep = flowStepRef.current;
+    if (currentStep === "corridas") {
+      const n = extractNumber(text);
+      if (n && n > 0) corridasRef.current = n;
+    } else if (currentStep === "ticket") {
+      const n = extractNumber(text);
+      if (n && n > 0) ticketRef.current = n;
+    }
 
     const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+
+    const prevStep = flowStepRef.current;
 
     try {
       const res = await fetch("/api/elton", {
@@ -191,73 +353,103 @@ export default function EltonChat() {
 
       if (data.message) {
         apiCallCountRef.current += 1;
-        typeMessage(generateId(), data.message, Date.now());
+
+        // Ticket step → skipa resposta da IA, dispara conta client-side
+        if (prevStep === "ticket") {
+          setLoading(false);
+          setFlowStep("conta");
+          scheduleTimer(() => {
+            if (flowStepRef.current === "conta") dispararConta();
+          }, 600);
+          scheduleTimer(() => inputRef.current?.focus(), 50);
+          return;
+        }
+
+        await typeMessage(generateId(), data.message, Date.now());
 
         const msgLower = data.message.toLowerCase();
 
-        // Após primeiro response (nome): 2s → card K-RRO
-        if (apiCallCountRef.current === 1 && !cardKRROEnviadoRef.current) {
-          cardKRROEnviadoRef.current = true;
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              id: generateId(), role: "elton" as const,
-              image: "/cards/cardk-rrofundopreto.png",
-              timestamp: Date.now(),
-            }]);
+        // K-RRO card: após primeiro response (nome)
+        if (apiCallCountRef.current === 1 && !cardKRROSentRef.current) {
+          cardKRROSentRef.current = true;
+          setFlowStep("card");
+          scheduleTimer(() => {
+            if (flowStepRef.current === "card") {
+              addImageCard("/cards/krro-apresentacao.png");
+              // 10s depois: pergunta automática
+              scheduleTimer(() => {
+                if (flowStepRef.current === "card") {
+                  setFlowStep("pergunta");
+                  typeMessage(
+                    generateId(),
+                    "O que você viu até agora que faz sentido pra você?",
+                    Date.now()
+                  );
+                }
+              }, 10000);
+            }
           }, 2000);
         }
 
-        // Clube card: AI menciona Clube K-RRO → 800ms → card
-        if ((msgLower.includes("clube k-rro") || msgLower.includes("clube de benefícios")) && !cardClubeEnviadoRef.current) {
-          cardClubeEnviadoRef.current = true;
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              id: generateId(), role: "elton" as const,
-              image: "/cards/clube-todos.png",
-              timestamp: Date.now(),
-            }]);
-          }, 800);
+        // Clube card: trigger exato
+        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubCardRef.current) {
+          clubCardRef.current = true;
+          scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
         }
 
-        // Card do plano: AI confirma plano específico com preço e percentual
-        const hasPrice = data.message.includes("R$397") || data.message.includes("R$347") || data.message.includes("R$297");
-        const hasROI   = data.message.includes("94%")   || data.message.includes("92%")   || data.message.includes("90%");
-        if (hasPrice && hasROI && !cardPlanoEnviadoRef.current) {
-          const planImg = data.message.includes("Platina") ? "/cards/clube-platina.jpg"
-            : data.message.includes("Ouro") ? "/cards/clube-ouro.jpg"
-            : data.message.includes("Prata") ? "/cards/clube-prata.jpg" : null;
+        // Plan card
+        if (!planCardRef.current) {
+          let planImg: string | null = null;
+          if (data.message.includes("Platina") && data.message.includes("R$397")) {
+            planImg = "/cards/clube-platina.jpg";
+            setSelectedPlan(PLAN_META.platina);
+          } else if (data.message.includes("Ouro") && data.message.includes("R$347")) {
+            planImg = "/cards/clube-ouro.jpg";
+            setSelectedPlan(PLAN_META.ouro);
+          } else if (data.message.includes("Prata") && data.message.includes("R$297")) {
+            planImg = "/cards/clube-prata.jpg";
+            setSelectedPlan(PLAN_META.prata);
+          }
           if (planImg) {
-            cardPlanoEnviadoRef.current = true;
+            planCardRef.current = true;
             const src = planImg;
-            setTimeout(() => {
-              setMessages(prev => [...prev, {
-                id: generateId(), role: "elton" as const,
-                image: src,
-                timestamp: Date.now(),
-              }]);
-            }, 600);
+            scheduleTimer(() => addImageCard(src), 600);
           }
         }
 
-        // Formulário: abre quando Elton confirma plano e menciona cadastro
-        const cadastroTriggers = ["formulário", "garantir sua vaga", "número de membro", "reservar seu número"];
+        // Formulário
+        const cadastroTriggers = [
+          "formulário", "garantir sua vaga", "número de membro", "reservar seu número",
+          "vou abrir o formulário", "formulário está aberto", "preenche com seus dados",
+          "link de pagamento aparece",
+        ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
-          const planKey = (["platina", "ouro", "prata"] as const).find(p =>
-            msgLower.includes(p) || messages.some(m => m.role === "elton" && m.text?.toLowerCase().includes(p))
-          ) ?? "platina";
+          const planKey =
+            (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p)) ?? "platina";
           const plan = PLAN_META[planKey];
           setSelectedPlan(plan);
           fetchNextNumber(plan.lot);
+          setFlowStep("form");
           setShowForm(true);
         }
+
+        // Transições de step baseadas no step anterior
+        if (prevStep === "pergunta")  setFlowStep("cidade");
+        else if (prevStep === "cidade")  setFlowStep("carro");
+        else if (prevStep === "carro")   setFlowStep("ano");
+        else if (prevStep === "ano")     setFlowStep("corridas");
+        else if (prevStep === "corridas") setFlowStep("ticket");
+        // ticket → conta: tratado acima com early return
       }
     } catch {
       typeMessage(generateId(), "Sistema instável. Tente novamente.", Date.now());
     } finally {
       setLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      scheduleTimer(() => inputRef.current?.focus(), 50);
     }
   }
+
+  // ─── Recording ───────────────────────────────────────────────────────────
 
   async function startRecording() {
     try {
@@ -267,8 +459,8 @@ export default function EltonChat() {
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const url = URL.createObjectURL(blob);
-        setMessages(prev => [...prev, { id: generateId(), role: "user", audioUrl: url, timestamp: Date.now() }]);
+        const audioUrl = URL.createObjectURL(blob);
+        setMessages(prev => [...prev, { id: generateId(), role: "user", audioUrl, timestamp: Date.now() }]);
         stream.getTracks().forEach(t => t.stop());
       };
       mr.start();
@@ -283,52 +475,35 @@ export default function EltonChat() {
     setIsRecording(false);
   }
 
+  // ─── Render ──────────────────────────────────────────────────────────────
+
   return (
     <div style={{ minHeight: "100vh", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{`
-        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.5); } 50% { box-shadow: 0 0 0 4px rgba(0,255,136,0); } }
-        .page-input:focus { border-color: #0066ff !important; outline: none; box-shadow: 0 0 0 2px rgba(0,102,255,0.2); }
-        .page-input::placeholder { color: #555; }
-        .page-send:hover:not(:disabled) { background: #0052cc !important; }
-        .page-online { animation: pulse-green 2s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+        @keyframes pulse-green { 0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,.5)}50%{box-shadow:0 0 0 4px rgba(0,255,136,0)} }
+        .page-input:focus{border-color:#0066ff!important;outline:none;box-shadow:0 0 0 2px rgba(0,102,255,.2)}
+        .page-input::placeholder{color:#555}
+        .page-send:hover:not(:disabled){background:#0052cc!important}
+        .page-online{animation:pulse-green 2s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+        .form-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;background:#0a0a0f;border-top:1px solid #0066ff;border-radius:16px 16px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px)) 16px;z-index:50}
       `}</style>
 
-      {/* Card de entrada — tela cheia ao carregar */}
-      {showIntroCard && (
+      {/* Modal de entrada */}
+      {showEntrada && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "#000",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={{ position:"fixed",inset:0,backgroundColor:"#000",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center" }}
         >
           <img
-            src="/cards/krro-apresentação.png"
+            src="/cards/krro-apresentacao.png"
             alt="K-RRO"
-            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+            style={{ maxWidth:"100%",maxHeight:"100%",objectFit:"contain" }}
+            onClick={() => setModalSrc("/cards/krro-apresentacao.png")}
           />
           <button
-            onClick={handleIntroClose}
+            onClick={handleEntradaClose}
             aria-label="Fechar"
-            style={{
-              position: "absolute",
-              top: 20,
-              right: 20,
-              background: "none",
-              border: "none",
-              color: "#fff",
-              fontSize: 32,
-              cursor: "pointer",
-              lineHeight: 1,
-              padding: "8px 12px",
-              minWidth: 44,
-              minHeight: 44,
-            }}
+            style={{ position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",fontSize:32,cursor:"pointer",lineHeight:1,padding:"8px 12px",minWidth:44,minHeight:44 }}
           >
             ×
           </button>
@@ -338,39 +513,34 @@ export default function EltonChat() {
       {/* Chat */}
       <div
         className="relative w-full max-w-[480px] flex flex-col overflow-hidden"
-        style={{
-          height: "100dvh",
-          maxHeight: "100dvh",
-          backgroundColor: "#0a0a0f",
-          boxShadow: "0 0 40px rgba(0,102,255,0.25), inset 0 0 0 1px rgba(0,102,255,0.15)",
-        }}
+        style={{ height:"100dvh",maxHeight:"100dvh",backgroundColor:"#0a0a0f",boxShadow:"0 0 40px rgba(0,102,255,0.25),inset 0 0 0 1px rgba(0,102,255,0.15)" }}
       >
         {/* Header */}
         <div
           className="flex items-center gap-3 px-4 py-3 z-10 flex-shrink-0"
-          style={{ backgroundColor: "#0a0a0f", borderBottom: "1px solid #0066ff" }}
+          style={{ backgroundColor:"#0a0a0f",borderBottom:"1px solid #0066ff" }}
         >
           <img
             src="/logo-krro.png"
             alt="K-RRO"
-            style={{ height: 32, objectFit: "contain", flexShrink: 0, filter: "brightness(0) invert(1)" }}
+            style={{ height:32,objectFit:"contain",flexShrink:0,filter:"brightness(0) invert(1)" }}
           />
           <div className="flex-1 min-w-0">
-            <p style={{ color: "#ffffff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Elton</p>
-            <p style={{ color: "#aaaaaa", fontSize: 11 }}>Consultor K-RRO</p>
+            <p style={{ color:"#ffffff",fontWeight:700,fontSize:14,lineHeight:1.2 }}>Elton</p>
+            <p style={{ color:"#aaaaaa",fontSize:11 }}>Consultor K-RRO</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span
               className="page-online"
-              style={{ width: 8, height: 8, borderRadius: "50%", background: "#00ff88", display: "inline-block", flexShrink: 0 }}
+              style={{ width:8,height:8,borderRadius:"50%",background:"#00ff88",display:"inline-block" }}
             />
-            <span style={{ color: "#00ff88", fontSize: 11 }}>online</span>
+            <span style={{ color:"#00ff88",fontSize:11 }}>online</span>
           </div>
           {process.env.NEXT_PUBLIC_DEV_MODE === "true" && (
             <button
               onClick={() => { localStorage.clear(); window.location.reload(); }}
               className="text-[10px] transition-colors flex-shrink-0 px-2 py-0.5 rounded"
-              style={{ color: "#0066ff", border: "1px solid #0066ff" }}
+              style={{ color:"#0066ff",border:"1px solid #0066ff" }}
               title="Limpar sessão (apenas dev)"
             >
               Nova conversa
@@ -379,26 +549,14 @@ export default function EltonChat() {
         </div>
 
         {/* Mensagens */}
-        <div className="flex-1 relative overflow-hidden" style={{ backgroundColor: "#0a0a0f" }}>
+        <div className="flex-1 relative overflow-hidden" style={{ backgroundColor:"#0a0a0f" }}>
           <img
             src="/logo-krro.png"
             alt=""
             aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "70%",
-              maxWidth: 300,
-              opacity: 0.04,
-              filter: "brightness(0) invert(1)",
-              pointerEvents: "none",
-              zIndex: 0,
-              userSelect: "none",
-            }}
+            style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"70%",maxWidth:300,opacity:0.04,filter:"brightness(0) invert(1)",pointerEvents:"none",zIndex:0,userSelect:"none" }}
           />
-          <div className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2" style={{ zIndex: 1 }}>
+          <div className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2" style={{ zIndex:1 }}>
             {messages.map((msg) => {
               const isElton = msg.role === "elton";
               return (
@@ -410,38 +568,41 @@ export default function EltonChat() {
                     className="max-w-[78%] px-3 py-2 text-sm leading-snug"
                     style={
                       isElton
-                        ? { backgroundColor: "#0d1117", borderLeft: "3px solid #0066ff", color: "#e0e0e0", borderRadius: "0 12px 12px 12px" }
-                        : { backgroundColor: "#0066ff", color: "#ffffff", borderRadius: "12px 12px 0 12px" }
+                        ? { backgroundColor:"#0d1117",borderLeft:"3px solid #0066ff",color:"#e0e0e0",borderRadius:"0 12px 12px 12px" }
+                        : { backgroundColor:"#0066ff",color:"#ffffff",borderRadius:"12px 12px 0 12px" }
                     }
                   >
-                    {msg.audioUrl ? (
-                      <audio controls src={msg.audioUrl} className="max-w-[220px]" style={{ height: 36 }} />
-                    ) : (
-                      <>
-                        {typeof msg.text === "string" && (
-                          <p className="whitespace-pre-wrap break-words">
-                            {msg.text}
-                            {typingMessageId === msg.id && (
-                              <span style={{ animation: "blink 1s step-end infinite" }}>|</span>
-                            )}
-                          </p>
+                    {msg.audioUrl && (
+                      <audio controls src={msg.audioUrl} className="max-w-[220px]" style={{ height:36 }} />
+                    )}
+                    {typeof msg.text === "string" && (
+                      <p className="whitespace-pre-wrap break-words">
+                        {msg.text}
+                        {typingMessageId === msg.id && (
+                          <span style={{ animation:"blink 1s step-end infinite" }}>|</span>
                         )}
-                        {msg.image && (
-                          <img
-                            src={msg.image}
-                            alt=""
-                            className="mt-2 rounded-xl w-full max-w-[260px] object-cover"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => setModalImage(msg.image!)}
-                          />
-                        )}
-                      </>
+                      </p>
+                    )}
+                    {msg.image && (
+                      <img
+                        src={msg.image}
+                        alt=""
+                        className="mt-2 rounded-xl w-full max-w-[260px] object-cover"
+                        style={{ cursor:"pointer" }}
+                        onClick={() => setModalSrc(msg.image!)}
+                      />
                     )}
                     <div className="flex items-center justify-end gap-1 mt-1">
-                      <span suppressHydrationWarning className="text-[10px] tabular-nums font-mono" style={{ color: "#666666" }}>
+                      <span
+                        suppressHydrationWarning
+                        className="text-[10px] tabular-nums font-mono"
+                        style={{ color:"#666666" }}
+                      >
                         {formatTime(msg.timestamp)}
                       </span>
-                      {!isElton && <span className="text-[11px] leading-none text-white opacity-80">✓✓</span>}
+                      {!isElton && (
+                        <span className="text-[11px] leading-none text-white opacity-80">✓✓</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -452,31 +613,17 @@ export default function EltonChat() {
               <div className="flex items-end justify-start">
                 <div
                   className="px-4 py-3"
-                  style={{ backgroundColor: "#0d1117", borderLeft: "3px solid #0066ff", borderRadius: "0 12px 12px 12px" }}
+                  style={{ backgroundColor:"#0d1117",borderLeft:"3px solid #0066ff",borderRadius:"0 12px 12px 12px" }}
                 >
                   <div className="flex gap-1 items-center">
                     {[0, 150, 300].map(delay => (
                       <span
                         key={delay}
                         className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ backgroundColor: "#0066ff", animationDelay: `${delay}ms` }}
+                        style={{ backgroundColor:"#0066ff",animationDelay:`${delay}ms` }}
                       />
                     ))}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {showForm && (
-              <div className="flex items-end justify-start px-1 py-2">
-                <div className="max-w-[90%] w-full">
-                  <CadastroForm
-                    plano={selectedPlan.label}
-                    valor={selectedPlan.valor}
-                    loading={formLoading}
-                    membroNumero={membroNumero ?? undefined}
-                    onSubmit={handleCadastroSubmit}
-                  />
                 </div>
               </div>
             )}
@@ -488,7 +635,7 @@ export default function EltonChat() {
         {/* Input */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
-          style={{ backgroundColor: "#000000", borderTop: "1px solid #0066ff" }}
+          style={{ backgroundColor:"#000000",borderTop:"1px solid #0066ff" }}
         >
           <input
             ref={inputRef}
@@ -499,9 +646,9 @@ export default function EltonChat() {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); }
             }}
             placeholder="Digite uma mensagem"
-            disabled={loading || typingMessageId !== null || showIntroCard}
+            disabled={loading || typingMessageId !== null || showEntrada}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
-            style={{ backgroundColor: "#0d1117", border: "1px solid #222", color: "#ffffff" }}
+            style={{ backgroundColor:"#0d1117",border:"1px solid #222",color:"#ffffff",fontSize:16 }}
           />
 
           {input.trim() ? (
@@ -510,7 +657,7 @@ export default function EltonChat() {
               disabled={loading || typingMessageId !== null}
               aria-label="Enviar mensagem"
               className="page-send w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
-              style={{ backgroundColor: "#0066ff" }}
+              style={{ backgroundColor:"#0066ff" }}
             >
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -524,7 +671,7 @@ export default function EltonChat() {
               onTouchEnd={e => { e.preventDefault(); stopRecording(); }}
               aria-label={isRecording ? "Gravando — solte para enviar" : "Segure para gravar"}
               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-              style={{ backgroundColor: isRecording ? "#ef4444" : "#0066ff" }}
+              style={{ backgroundColor:isRecording ? "#ef4444" : "#0066ff" }}
             >
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
@@ -534,7 +681,35 @@ export default function EltonChat() {
         </div>
       </div>
 
-      {modalImage && <CardModal src={modalImage} onClose={() => setModalImage(null)} />}
+      {/* Formulário fixo — slide-up panel */}
+      {showForm && (
+        <div className="form-panel">
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
+            <span style={{ color:"#aaaaaa",fontSize:12 }}>Formulário de cadastro</span>
+            <button
+              onClick={() => { setShowForm(false); setFormError(null); }}
+              style={{ background:"none",border:"none",color:"#666",fontSize:20,cursor:"pointer",lineHeight:1,padding:4 }}
+              aria-label="Fechar formulário"
+            >
+              ×
+            </button>
+          </div>
+          {formError && (
+            <div style={{ backgroundColor:"#2a0a0a",border:"1px solid #ef4444",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#ef4444",fontSize:12 }}>
+              {formError}
+            </div>
+          )}
+          <CadastroForm
+            plano={selectedPlan.label}
+            valor={selectedPlan.valor}
+            loading={formLoading}
+            membroNumero={membroNumero ?? undefined}
+            onSubmit={handleCadastroSubmit}
+          />
+        </div>
+      )}
+
+      {modalSrc && <CardModal src={modalSrc} onClose={() => setModalSrc(null)} />}
     </div>
   );
 }
