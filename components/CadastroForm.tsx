@@ -7,6 +7,7 @@ interface CadastroFormProps {
   plano: string;
   valor: string;
   loading?: boolean;
+  membroNumero?: string;
 }
 
 const PLATE_RE = /^[A-Z]{3}[-\s]?(?:\d[A-Z]\d{2}|\d{4})$/i;
@@ -36,7 +37,7 @@ const errorStyle: React.CSSProperties = {
   marginTop: 3,
 };
 
-export default function CadastroForm({ onSubmit, plano, valor, loading = false }: CadastroFormProps) {
+export default function CadastroForm({ onSubmit, plano, valor, loading = false, membroNumero }: CadastroFormProps) {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
@@ -104,9 +105,26 @@ export default function CadastroForm({ onSubmit, plano, valor, loading = false }
       <p style={{ color: "#0066ff", fontWeight: 700, fontSize: 12, marginBottom: 2, textTransform: "uppercase", letterSpacing: 1 }}>
         Clube K-RRO
       </p>
-      <p style={{ color: "#ffffff", fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
-        Cadastro — {plano} · {valor}
+      <p style={{ color: "#ffffff", fontWeight: 700, fontSize: 15, marginBottom: membroNumero ? 6 : 16 }}>
+        {plano} · {valor}
       </p>
+      {membroNumero && (
+        <div style={{
+          backgroundColor: "#0066ff18",
+          border: "1px solid #0066ff44",
+          borderRadius: 6,
+          padding: "8px 12px",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <span style={{ color: "#aaaaaa", fontSize: 11 }}>Número do Membro</span>
+          <span style={{ color: "#0066ff", fontWeight: 700, fontSize: 15, letterSpacing: 1 }}>
+            #{membroNumero}
+          </span>
+        </div>
+      )}
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {field("Nome completo", "nome", nome, setNome, { type: "text", placeholder: "João da Silva" })}
         {field("WhatsApp com DDD", "telefone", telefone, setTelefone, { type: "tel", placeholder: "51 99999-8888" })}
