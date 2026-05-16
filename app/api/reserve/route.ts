@@ -11,10 +11,23 @@ const LOT_PRICES: Record<LotName, number> = {
 };
 
 const LOT_LABELS: Record<LotName, string> = {
-  lote1: "K-RRO Lote 1 — Taxa 94%",
-  lote2: "K-RRO Lote 2 — Taxa 92% (6x sem juros)",
-  lote3: "K-RRO Lote 3 — Taxa 90% (6x sem juros)",
+  lote1: "K-RRO Prata — Taxa 90% (6x sem juros)",
+  lote2: "K-RRO Ouro — Taxa 92% (6x sem juros)",
+  lote3: "K-RRO Platina — Taxa 94%",
   care: "K-RRO CARE — Validação Interna",
+};
+
+const PLANO_INFO: Record<string, { nome: string; percentual: string }> = {
+  lote1: { nome: "Prata",   percentual: "90%" },
+  lote2: { nome: "Ouro",    percentual: "92%" },
+  lote3: { nome: "Platina", percentual: "94%" },
+};
+
+// Cascata de fallback: lote3 → lote2 → lote1
+const LOT_CASCADE: Partial<Record<LotName, LotName[]>> = {
+  lote3: ["lote3", "lote2", "lote1"],
+  lote2: ["lote2", "lote1"],
+  lote1: ["lote1"],
 };
 
 interface ReserveBody {
@@ -95,13 +108,27 @@ export async function POST(req: NextRequest) {
       city = conv?.driver_city ?? "";
     }
 
-    // Sempre busca sem filtro de cidade — seleciona qualquer registro do lote com vagas disponíveis
+    // Fallback: tenta o lote solicitado e desce na cascata se esgotado
+    const cascade = LOT_CASCADE[lot] ?? [lot];
+
     const { data: allInv } = await supabaseAdmin
       .from("lot_inventory")
-      .select("city, total, reserved, sold")
-      .eq("lot", lot);
+      .select("city, lot, total, reserved, sold")
+      .in("lot", cascade);
 
-    const avail = (allInv ?? []).find(r => r.total - r.reserved - r.sold > 0);
+    console.log("[RESERVE] lot solicitado:", lot, "vagas encontradas:", (allInv ?? []).length);
+
+    let selectedLot: LotName = lot;
+    let avail: { city: string; lot: string; total: number; reserved: number; sold: number } | null = null;
+
+    for (const tryLot of cascade) {
+      const found = (allInv ?? []).find(r => r.lot === tryLot && r.total - r.reserved - r.sold > 0);
+      if (found) {
+        avail = found;
+        selectedLot = tryLot as LotName;
+        break;
+      }
+    }
 
     if (!avail) {
       return NextResponse.json<ReserveResponse>(
@@ -134,7 +161,7 @@ export async function POST(req: NextRequest) {
       .insert({
         driver_phone: phoneForLock,
         city: resolvedCity,
-        lot,
+        lot: selectedLot,
         status: "active",
         expires_at: expiresAt,
       })
@@ -153,7 +180,7 @@ export async function POST(req: NextRequest) {
       .from("lot_inventory")
       .update({ reserved: inventoryReserved + 1 })
       .eq("city", resolvedCity)
-      .eq("lot", lot);
+      .eq("lot", selectedLot);
 
     // Atualiza a conversa com os dados resolvidos
     await supabaseAdmin
@@ -162,7 +189,7 @@ export async function POST(req: NextRequest) {
         driver_phone: driver_phone || null,
         driver_name: driver_name || null,
         driver_city: resolvedCity || null,
-        lot_offered: lot,
+        lot_offered: selectedLot,
         payment_status: "pending",
         current_state: "payment_pending",
       })
@@ -180,10 +207,10 @@ export async function POST(req: NextRequest) {
       body: {
         items: [
           {
-            id: lot,
-            title: LOT_LABELS[lot],
+            id: selectedLot,
+            title: LOT_LABELS[selectedLot],
             quantity: 1,
-            unit_price: LOT_PRICES[lot],
+            unit_price: LOT_PRICES[selectedLot],
             currency_id: "BRL",
           },
         ],
@@ -191,17 +218,17 @@ export async function POST(req: NextRequest) {
           name: driver_name || undefined,
           ...(driver_phone ? { phone: { number: driver_phone } } : {}),
         },
-        external_reference: `${conversation_id}|${lockData.id}|${lot}`,
+        external_reference: `${conversation_id}|${lockData.id}|${selectedLot}`,
         notification_url: `${appUrl}/api/webhook/mpago`,
         back_urls: {
-          success: `${appUrl}/pre-lancamento?pagamento=aprovado&value=${LOT_PRICES[lot]}`,
+          success: `${appUrl}/pre-lancamento?pagamento=aprovado&value=${LOT_PRICES[selectedLot]}`,
           failure: `${appUrl}/pre-lancamento?pagamento=falhou`,
           pending: `${appUrl}/pre-lancamento?pagamento=pendente`,
         },
         auto_return: "approved",
         expires: true,
         expiration_date_to: expiresAt,
-        ...(lot !== "lote1"
+        ...(selectedLot !== "lote1"
           ? { payment_methods: { installments: 6, default_installments: 6 } }
           : {}),
       },
@@ -216,12 +243,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const fallbackOcorreu = selectedLot !== lot;
     return NextResponse.json<ReserveResponse>({
       success: true,
       available: true,
       checkout_url: checkoutUrl,
       lock_id: lockData.id as string,
       expires_at: expiresAt,
+      ...(fallbackOcorreu ? {
+        lotUsado: selectedLot,
+        mensagem: `${PLANO_INFO[lot]?.nome ?? lot} esgotado. Sua vaga foi alocada no ${PLANO_INFO[selectedLot].nome} com ${PLANO_INFO[selectedLot].percentual}.`,
+      } : {}),
     });
   } catch (err) {
     console.error("[/api/reserve]", err);

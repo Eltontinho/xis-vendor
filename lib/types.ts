@@ -66,4 +66,6 @@ export interface ReserveResponse {
   lock_id?: string;
   expires_at?: string;
   error?: string;
+  lotUsado?: string;
+  mensagem?: string;
 }

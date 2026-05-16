@@ -79,6 +79,12 @@ export default function EltonChat() {
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
   const [membroNumero, setMembroNumero] = useState<string | null>(null);
   const [flowStep, setFlowStep] = useState<FlowStep>("nome");
+  const [pendingFallback, setPendingFallback] = useState<{
+    checkout_url: string;
+    lotUsado: string;
+    planoFallback: typeof PLAN_META[PlanKey];
+    mensagem: string;
+  } | null>(null);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -119,11 +125,31 @@ export default function EltonChat() {
 
   // ─── Effects ─────────────────────────────────────────────────────────────
 
+  // ─── Disponibilidade de planos ───────────────────────────────────────────
+
+  async function getPlanoDisponivel(): Promise<typeof PLAN_META[PlanKey] | null> {
+    try {
+      const res = await fetch("/api/planos-disponiveis");
+      const data = await res.json();
+      if (!data.planoAtivo || data.vagasRestantes === 0) return null;
+      const map: Record<string, typeof PLAN_META[PlanKey]> = {
+        platina: PLAN_META.platina,
+        ouro:    PLAN_META.ouro,
+        prata:   PLAN_META.prata,
+      };
+      return map[data.planoAtivo] ?? null;
+    } catch {
+      return PLAN_META.platina; // fallback seguro em caso de erro de rede
+    }
+  }
+
   useEffect(() => {
     fetch("/api/elton/vagas")
       .then(r => r.json())
       .then(d => setVagas(d.vagas ?? 0))
       .catch(() => {});
+    // Pré-carrega o plano disponível para já ter o selectedPlan correto
+    getPlanoDisponivel().then(p => { if (p) setSelectedPlan(p); });
   }, []);
 
   useEffect(() => {
@@ -218,13 +244,43 @@ export default function EltonChat() {
       });
       const data = await res.json();
       console.log("[RESERVE]", data);
+      console.log("[CADASTRO] resposta do reserve:", JSON.stringify(data));
 
       if (data.success === true && data.checkout_url) {
         setShowForm(false);
         setFormError(null);
+
+        if (data.lotUsado && data.lotUsado !== selectedPlan.lot) {
+          // Fallback de lote: aguarda confirmação do usuário
+          const fb: typeof PLAN_META[PlanKey] =
+            data.lotUsado === "lote3" ? PLAN_META.platina
+            : data.lotUsado === "lote2" ? PLAN_META.ouro
+            : PLAN_META.prata;
+          const pct = data.lotUsado === "lote3" ? "94%" : data.lotUsado === "lote2" ? "92%" : "90%";
+          setPendingFallback({
+            checkout_url: data.checkout_url,
+            lotUsado: data.lotUsado,
+            planoFallback: fb,
+            mensagem: data.mensagem ?? "",
+          });
+          typeMessage(
+            generateId(),
+            `O plano ${selectedPlan.label} esgotou. Aloquei sua vaga no ${fb.label} com ${pct}. O valor é ${fb.valor}. Quer prosseguir?`,
+            Date.now()
+          );
+        } else {
+          typeMessage(
+            generateId(),
+            `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
+            Date.now()
+          );
+        }
+      } else if (!data.available && data.error === "Lote esgotado") {
+        setFormError(null);
+        setShowForm(false);
         typeMessage(
           generateId(),
-          `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
+          "O Clube K-RRO encerrou as vagas para sua região. Após 01/06/2026, a taxa padrão será 85% por corrida. Quer entrar na lista de espera para o próximo lote?",
           Date.now()
         );
       } else {
@@ -302,7 +358,40 @@ export default function EltonChat() {
       setShowForm(false);
       setModalSrc(null);
       setFormError(null);
+      setPendingFallback(null);
       window.location.reload();
+      return;
+    }
+
+    // Confirmação de fallback de lote
+    if (pendingFallback !== null) {
+      const sim = /\b(sim|s|pode|prosseguir|quero|topo|ok|claro|confirmo)\b/i.test(text.trim());
+      const nao = /\b(não|nao|n|cancela|desiste|cancel)\b/i.test(text.trim());
+      const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      setInput("");
+      if (sim) {
+        const { checkout_url, planoFallback } = pendingFallback;
+        setPendingFallback(null);
+        setSelectedPlan(planoFallback);
+        typeMessage(
+          generateId(),
+          `Perfeito! Aqui está seu link: ${checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
+          Date.now()
+        );
+        return;
+      }
+      if (nao) {
+        setPendingFallback(null);
+        typeMessage(generateId(), "Sem problema. Se mudar de ideia, é só me chamar.", Date.now());
+        return;
+      }
+      // Resposta ambígua: reafirma a pergunta e retorna
+      typeMessage(
+        generateId(),
+        `Quer prosseguir com o ${pendingFallback.planoFallback.label} (${pendingFallback.planoFallback.valor})?`,
+        Date.now()
+      );
       return;
     }
 
@@ -424,13 +513,22 @@ export default function EltonChat() {
           "link de pagamento aparece",
         ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
-          const planKey =
-            (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p)) ?? "platina";
-          const plan = PLAN_META[planKey];
-          setSelectedPlan(plan);
-          fetchNextNumber(plan.lot);
-          setFlowStep("form");
-          setShowForm(true);
+          const planoDisp = await getPlanoDisponivel();
+          if (!planoDisp) {
+            typeMessage(
+              generateId(),
+              "O Clube K-RRO encerrou as vagas para sua região. Após 01/06/2026, a taxa padrão será 85% por corrida. Quer entrar na lista de espera para o próximo lote?",
+              Date.now()
+            );
+          } else {
+            // Plano mencionado pela IA tem prioridade; caso contrário usa o disponível
+            const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
+            const plan = aiPlanKey ? PLAN_META[aiPlanKey] : planoDisp;
+            setSelectedPlan(plan);
+            fetchNextNumber(plan.lot);
+            setFlowStep("form");
+            setShowForm(true);
+          }
         }
 
         // Transições de step baseadas no step anterior
