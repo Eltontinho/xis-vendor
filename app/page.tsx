@@ -281,9 +281,9 @@ export default function EltonChat() {
           const cadastroTriggers = [
             "pode me passar seu nome completo", "me passa seu nome completo", "qual é o seu nome completo",
             "vou gerar seu link", "vou processar seu cadastro", "preciso do seu nome completo",
-            "seu nome completo", "nome completo", "qual seu nome", "me passa seu nome", "preciso do seu nome",
             "me passa os dados", "vou precisar de alguns dados", "para gerar seu cadastro",
-            "seguir com o cadastro", "dados para gerar", "whatsapp com ddd", "1. nome", "preciso de alguns dados",
+            "seguir com o cadastro", "dados para gerar", "whatsapp com ddd", "preciso de alguns dados",
+            "formulário", "seu número de membro", "garantir sua vaga",
           ];
           if (cadastroTriggers.some(t => msgLower.includes(t))) {
             const allMsgs = [...messages, eltonMsg];
