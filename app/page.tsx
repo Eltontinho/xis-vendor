@@ -76,6 +76,7 @@ export default function EltonChat() {
   const [vagas, setVagas] = useState(42);
   const [isRecording, setIsRecording] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [showCardEntrada, setShowCardEntrada] = useState<boolean>(() =>
     typeof window !== "undefined" ? !localStorage.getItem("krro_entrada_visto") : false
   );
@@ -99,6 +100,7 @@ export default function EltonChat() {
   const apiCallCountRef = useRef(0);
   const corridasRef = useRef<number | null>(null);
   const contaPadariaFiredRef = useRef(false);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetch("/api/elton/vagas")
@@ -120,6 +122,32 @@ export default function EltonChat() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showCardEntrada, modalImage]);
+
+  useEffect(() => {
+    return () => { if (typingIntervalRef.current) clearInterval(typingIntervalRef.current); };
+  }, []);
+
+  function typeMessage(id: string, fullText: string, timestamp: number, image?: string): Promise<void> {
+    return new Promise(resolve => {
+      if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
+      setTypingMessageId(id);
+      setMessages(prev => [...prev, { id, role: "elton" as const, text: "", image, timestamp }]);
+      if (!fullText) { setTypingMessageId(null); resolve(); return; }
+      let i = 0;
+      typingIntervalRef.current = setInterval(() => {
+        i++;
+        const current = fullText.slice(0, i);
+        const done = i >= fullText.length;
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: current } : m));
+        if (done) {
+          clearInterval(typingIntervalRef.current!);
+          typingIntervalRef.current = null;
+          setTypingMessageId(null);
+          resolve();
+        }
+      }, 18);
+    });
+  }
 
   async function fetchNextNumber(lot: string) {
     try {
@@ -145,25 +173,13 @@ export default function EltonChat() {
       v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     await wait(1500);
-    setMessages(prev => [...prev, {
-      id: generateId(), role: "elton" as const,
-      text: `${corridas} corridas × R$${brl(ticket)} = R$${brl(recebido)} que você recebeu. O passageiro pagou no mínimo R$${brl(bruto)}. A plataforma ficou com R$${brl(plataforma)}.`,
-      timestamp: Date.now(),
-    }]);
+    await typeMessage(generateId(), `${corridas} corridas × R$${brl(ticket)} = R$${brl(recebido)} que você recebeu. O passageiro pagou no mínimo R$${brl(bruto)}. A plataforma ficou com R$${brl(plataforma)}.`, Date.now());
 
     await wait(2000);
-    setMessages(prev => [...prev, {
-      id: generateId(), role: "elton" as const,
-      text: `Rodando 5 dias por semana nessa média, você fatura R$${Math.round(mensal).toLocaleString("pt-BR")} por mês. São R$${Math.round(anual).toLocaleString("pt-BR")} por ano. Com isso, dá pra andar de carro zero todo ano.`,
-      timestamp: Date.now(),
-    }]);
+    await typeMessage(generateId(), `Rodando 5 dias por semana nessa média, você fatura R$${Math.round(mensal).toLocaleString("pt-BR")} por mês. São R$${Math.round(anual).toLocaleString("pt-BR")} por ano. Com isso, dá pra andar de carro zero todo ano.`, Date.now());
 
     await wait(2000);
-    setMessages(prev => [...prev, {
-      id: generateId(), role: "elton" as const,
-      text: "Vou te mostrar o Clube K-RRO — quero que você esteja sempre de carro zero.",
-      timestamp: Date.now(),
-    }]);
+    await typeMessage(generateId(), "Vou te mostrar o Clube K-RRO — quero que você esteja sempre de carro zero.", Date.now());
 
     await wait(800);
     setMessages(prev => [...prev, {
@@ -192,27 +208,19 @@ export default function EltonChat() {
       });
       const data = await res.json();
       setShowForm(false);
-      setMessages(prev => [...prev, {
-        id: generateId(), role: "elton" as const,
-        text: data.success && data.checkout_url
-          ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
-          : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.",
-        timestamp: Date.now(),
-      }]);
+      typeMessage(generateId(), data.success && data.checkout_url
+        ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
+        : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } catch {
       setShowForm(false);
-      setMessages(prev => [...prev, {
-        id: generateId(), role: "elton" as const,
-        text: "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.",
-        timestamp: Date.now(),
-      }]);
+      typeMessage(generateId(), "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } finally {
       setFormLoading(false);
     }
   }
 
   async function sendText(text: string) {
-    if (!text.trim() || loading || padariaActive) return;
+    if (!text.trim() || loading || padariaActive || typingMessageId) return;
 
     if (text.trim() === "/reset") {
       localStorage.clear();
@@ -266,7 +274,7 @@ export default function EltonChat() {
             image: data.image === "/cards/krro-apresentacao.png" ? undefined : data.image,
             timestamp: Date.now(),
           };
-          setMessages(prev => [...prev, eltonMsg]);
+          typeMessage(eltonMsg.id, data.message, eltonMsg.timestamp, eltonMsg.image);
 
           // Detect cadastro triggers
           const msgLower = data.message.toLowerCase();
@@ -298,11 +306,7 @@ export default function EltonChat() {
                 timestamp: Date.now(),
               }]);
               cardFollowUpTimerRef.current = setTimeout(() => {
-                setMessages(prev => [...prev, {
-                  id: generateId(), role: "elton" as const,
-                  text: "O que você viu até agora que faz sentido pra você?",
-                  timestamp: Date.now(),
-                }]);
+                typeMessage(generateId(), "O que você viu até agora que faz sentido pra você?", Date.now());
                 cardFollowUpTimerRef.current = null;
               }, 10000);
             }, 2000);
@@ -349,11 +353,7 @@ export default function EltonChat() {
         }
       }
     } catch {
-      setMessages(prev => [...prev, {
-        id: generateId(), role: "elton",
-        text: "Sistema instável. Tente novamente.",
-        timestamp: Date.now(),
-      }]);
+      typeMessage(generateId(), "Sistema instável. Tente novamente.", Date.now());
     } finally {
       setLoading(false);
       if (!padariaTriggered) {
@@ -396,6 +396,7 @@ export default function EltonChat() {
         .page-input::placeholder { color: #555; }
         .page-send:hover:not(:disabled) { background: #0052cc !important; }
         .page-online { animation: pulse-green 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
       `}</style>
 
       {showCardEntrada && (
@@ -493,7 +494,14 @@ export default function EltonChat() {
                       <audio controls src={msg.audioUrl} className="max-w-[220px]" style={{ height: 36 }} />
                     ) : (
                       <>
-                        {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                        {typeof msg.text === "string" && (
+                          <p className="whitespace-pre-wrap break-words">
+                            {msg.text}
+                            {typingMessageId === msg.id && (
+                              <span style={{ animation: "blink 1s step-end infinite" }}>|</span>
+                            )}
+                          </p>
+                        )}
                         {msg.image && (
                           <img
                             src={msg.image}
@@ -516,7 +524,7 @@ export default function EltonChat() {
               );
             })}
 
-            {(loading || padariaActive) && (
+            {(loading || padariaActive) && !typingMessageId && (
               <div className="flex items-end justify-start">
                 <div
                   className="px-4 py-3"
@@ -567,7 +575,7 @@ export default function EltonChat() {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); }
             }}
             placeholder="Digite uma mensagem"
-            disabled={loading || padariaActive}
+            disabled={loading || padariaActive || typingMessageId !== null}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{ backgroundColor: "#0d1117", border: "1px solid #222", color: "#ffffff" }}
           />
@@ -575,7 +583,7 @@ export default function EltonChat() {
           {input.trim() ? (
             <button
               onClick={() => sendText(input)}
-              disabled={loading || padariaActive}
+              disabled={loading || padariaActive || typingMessageId !== null}
               aria-label="Enviar mensagem"
               className="page-send w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
               style={{ backgroundColor: "#0066ff" }}
