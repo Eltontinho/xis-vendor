@@ -33,7 +33,9 @@
       "PowerShell(git *)",
       "WebFetch(domain:axis-vendor.vercel.app)",
       "Bash(npx tsc *)",
-      "Bash(supabase *)"
+      "Bash(supabase *)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\tinho\\\\axis-vendor\\\\lib\\\\deepseek.ts\" -Force)",
+      "Bash(Write-Output \"deleted\")"
     ]
   }
 }
