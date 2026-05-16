@@ -31,7 +31,9 @@
       "Bash(git clone *)",
       "PowerShell(vercel deploy *)",
       "PowerShell(git *)",
-      "WebFetch(domain:axis-vendor.vercel.app)"
+      "WebFetch(domain:axis-vendor.vercel.app)",
+      "Bash(npx tsc *)",
+      "Bash(supabase *)"
     ]
   }
 }
