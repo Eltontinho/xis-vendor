@@ -95,6 +95,7 @@ export default function EltonChat() {
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const cardApresentacaoEnviadoRef = useRef(false);
+  const followUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiCallCountRef = useRef(0);
   const corridasRef = useRef<number | null>(null);
   const contaPadariaFiredRef = useRef(false);
@@ -234,6 +235,7 @@ export default function EltonChat() {
     }
 
     if (showForm) setShowForm(false);
+    if (followUpTimerRef.current) { clearTimeout(followUpTimerRef.current); followUpTimerRef.current = null; }
 
     const lastEltonText = [...messages].reverse().find(m => m.role === "elton" && m.text)?.text ?? "";
     const isCorridasCtx = detectsCorridasQuestion(lastEltonText);
@@ -283,7 +285,7 @@ export default function EltonChat() {
           // Detect cadastro triggers
           const msgLower = data.message.toLowerCase();
           const cadastroTriggers = [
-            "pode me passar seu nome completo", "vou gerar seu link", "vou processar seu cadastro",
+            "vou gerar seu link", "vou processar seu cadastro",
             "formulário", "garantir sua vaga", "seu número de membro",
           ];
           if (cadastroTriggers.some(t => msgLower.includes(t))) {
@@ -298,6 +300,7 @@ export default function EltonChat() {
           }
 
           // Presentation card: 2s after first API response
+          // M3 follow-up: única mensagem automática permitida, 10s após o card, cancelada se usuário responder
           if (!cardApresentacaoEnviadoRef.current && apiCallCountRef.current === 1) {
             cardApresentacaoEnviadoRef.current = true;
             setTimeout(() => {
@@ -306,6 +309,10 @@ export default function EltonChat() {
                 image: "/cards/krro-apresentacao.png",
                 timestamp: Date.now(),
               }]);
+              followUpTimerRef.current = setTimeout(() => {
+                followUpTimerRef.current = null;
+                typeMessage(generateId(), "O que você viu até agora que faz sentido pra você?", Date.now());
+              }, 10000);
             }, 2000);
           }
 
