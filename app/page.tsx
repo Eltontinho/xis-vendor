@@ -77,9 +77,7 @@ export default function EltonChat() {
   const [isRecording, setIsRecording] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
-  const [showCardEntrada, setShowCardEntrada] = useState<boolean>(() =>
-    typeof window !== "undefined" ? !localStorage.getItem("krro_entrada_visto") : false
-  );
+  const [showIntroCard, setShowIntroCard] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
@@ -116,12 +114,12 @@ export default function EltonChat() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (showCardEntrada) { setShowCardEntrada(false); localStorage.setItem("krro_entrada_visto", "1"); }
+      if (showIntroCard) { setShowIntroCard(false); }
       else if (modalImage) setModalImage(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showCardEntrada, modalImage]);
+  }, [showIntroCard, modalImage]);
 
   useEffect(() => {
     return () => { if (typingIntervalRef.current) clearInterval(typingIntervalRef.current); };
@@ -274,7 +272,7 @@ export default function EltonChat() {
             id: generateId(),
             role: "elton",
             text: data.message,
-            image: data.image === "/cards/krro-apresentacao.png" ? undefined : data.image,
+            image: data.image === "/cards/apresentacao.png" ? undefined : data.image,
             timestamp: Date.now(),
           };
           typeMessage(eltonMsg.id, data.message, eltonMsg.timestamp, eltonMsg.image);
@@ -299,7 +297,7 @@ export default function EltonChat() {
             setTimeout(() => {
               setMessages(prev => [...prev, {
                 id: generateId(), role: "elton" as const,
-                image: "/cards/krro-apresentacao.png",
+                image: "/cards/apresentacao.png",
                 timestamp: Date.now(),
               }]);
             }, 2000);
@@ -391,14 +389,37 @@ export default function EltonChat() {
         @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
       `}</style>
 
-      {showCardEntrada && (
-        <CardModal
-          src="/cards/krro-apresentacao.png"
-          onClose={() => {
-            setShowCardEntrada(false);
-            localStorage.setItem("krro_entrada_visto", "1");
-          }}
-        />
+      {showIntroCard && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "#000",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          <img
+            src="/cards/apresentacao.png"
+            alt="K-RRO"
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          />
+          <button
+            onClick={() => setShowIntroCard(false)}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: 32,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       <div
