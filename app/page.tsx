@@ -68,8 +68,7 @@ export default function EltonChat() {
   const cardKRROEnviadoRef = useRef(false);
   const cardClubeEnviadoRef = useRef(false);
   const cardPlanoEnviadoRef = useRef(false);
-  const followUpKRRORef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const followUpClubeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   useEffect(() => {
     fetch("/api/elton/vagas")
@@ -93,11 +92,7 @@ export default function EltonChat() {
   }, [showIntroCard, modalImage]);
 
   useEffect(() => {
-    return () => {
-      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
-      if (followUpKRRORef.current) clearTimeout(followUpKRRORef.current);
-      if (followUpClubeRef.current) clearTimeout(followUpClubeRef.current);
-    };
+    return () => { if (typingIntervalRef.current) clearInterval(typingIntervalRef.current); };
   }, []);
 
   function typeMessage(id: string, fullText: string, timestamp: number, image?: string): Promise<void> {
@@ -120,11 +115,6 @@ export default function EltonChat() {
         }
       }, 18);
     });
-  }
-
-  function cancelFollowUps() {
-    if (followUpKRRORef.current) { clearTimeout(followUpKRRORef.current); followUpKRRORef.current = null; }
-    if (followUpClubeRef.current) { clearTimeout(followUpClubeRef.current); followUpClubeRef.current = null; }
   }
 
   function handleIntroClose() {
@@ -184,7 +174,6 @@ export default function EltonChat() {
       return;
     }
 
-    cancelFollowUps();
     if (showForm) setShowForm(false);
 
     const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
@@ -206,24 +195,19 @@ export default function EltonChat() {
 
         const msgLower = data.message.toLowerCase();
 
-        // Após primeiro response (nome): 2s → card K-RRO + 8s follow-up
+        // Após primeiro response (nome): 2s → card K-RRO
         if (apiCallCountRef.current === 1 && !cardKRROEnviadoRef.current) {
           cardKRROEnviadoRef.current = true;
-          setTimeout(async () => {
-            await typeMessage(generateId(), "Vou te mostrar um pouquinho da K-RRO", Date.now());
+          setTimeout(() => {
             setMessages(prev => [...prev, {
               id: generateId(), role: "elton" as const,
               image: "/cards/cardk-rrofundopreto.png",
               timestamp: Date.now(),
             }]);
-            followUpKRRORef.current = setTimeout(() => {
-              followUpKRRORef.current = null;
-              typeMessage(generateId(), "O que você achou do card?", Date.now());
-            }, 8000);
           }, 2000);
         }
 
-        // Clube card: AI menciona Clube K-RRO → 800ms → card + 8s follow-up
+        // Clube card: AI menciona Clube K-RRO → 800ms → card
         if ((msgLower.includes("clube k-rro") || msgLower.includes("clube de benefícios")) && !cardClubeEnviadoRef.current) {
           cardClubeEnviadoRef.current = true;
           setTimeout(() => {
@@ -232,10 +216,6 @@ export default function EltonChat() {
               image: "/cards/clube-todos.png",
               timestamp: Date.now(),
             }]);
-            followUpClubeRef.current = setTimeout(() => {
-              followUpClubeRef.current = null;
-              typeMessage(generateId(), "Qual dos planos fez mais sentido pra você?", Date.now());
-            }, 8000);
           }, 800);
         }
 
