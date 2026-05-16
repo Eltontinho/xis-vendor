@@ -98,6 +98,7 @@ payback = 397 ÷ ganho_extra
 
 NUNCA calcule tirando percentual do que o motorista recebe. Sempre divide por 0,75 primeiro.
 NUNCA agrupa as mensagens numa só.
+Use EXATAMENTE: [corridas] = número informado pelo motorista, [ticket] = valor informado. NUNCA use o mesmo número para ambos. Exemplo correto: 25 corridas × R$18 = R$450.
 
 ---
 FOMO — URGÊNCIA REAL (use naturalmente, UMA vez, no momento certo):

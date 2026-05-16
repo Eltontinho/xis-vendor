@@ -207,7 +207,7 @@ export default function EltonChat() {
         }),
       });
       const data = await res.json();
-      console.log("[RESERVE]", JSON.stringify(data));
+      console.log("[RESERVE]", data);
       setShowForm(false);
       typeMessage(generateId(), data.success && data.checkout_url
         ? `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`
@@ -215,7 +215,7 @@ export default function EltonChat() {
         ? `Erro ao gerar o link: ${data.error}. Me chama que resolvo.`
         : "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } catch (err) {
-      console.error("[CADASTRO ERRO]", err);
+      console.error("[CADASTRO]", err);
       setShowForm(false);
       typeMessage(generateId(), "Tive um problema técnico ao gerar o link. Me chama em instantes que resolvo.", Date.now());
     } finally {
@@ -281,12 +281,7 @@ export default function EltonChat() {
 
           // Detect cadastro triggers
           const msgLower = data.message.toLowerCase();
-          const cadastroTriggers = [
-            "vou gerar seu link", "vou processar seu cadastro",
-            "preciso do seu nome completo", "pode me passar seu nome completo",
-            "me passa seu nome completo", "seguir com o cadastro",
-            "formulário", "seu número de membro", "garantir sua vaga", "whatsapp com ddd",
-          ];
+          const cadastroTriggers = ["formulário", "link", "garantir sua vaga"];
           if (cadastroTriggers.some(t => msgLower.includes(t))) {
             const allMsgs = [...messages, eltonMsg];
             const planKey = (["platina", "ouro", "prata"] as const).find(p =>
