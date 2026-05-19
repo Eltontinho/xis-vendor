@@ -108,27 +108,44 @@ export async function POST(req: NextRequest) {
       city = conv?.driver_city ?? "";
     }
 
-    // Fallback: tenta o lote solicitado e desce na cascata se esgotado
+    // Fallback hierárquico por cidade, depois qualquer cidade, depois cascata de lote
     const cascade = LOT_CASCADE[lot] ?? [lot];
-
-    const { data: allInv } = await supabaseAdmin
-      .from("lot_inventory")
-      .select("city, lot, total, reserved, sold")
-      .in("lot", cascade);
-
-    console.log("[RESERVE] lot solicitado:", lot, "vagas encontradas:", (allInv ?? []).length);
 
     let selectedLot: LotName = lot;
     let avail: { city: string; lot: string; total: number; reserved: number; sold: number } | null = null;
 
     for (const tryLot of cascade) {
-      const found = (allInv ?? []).find(r => r.lot === tryLot && r.total - r.reserved - r.sold > 0);
+      // Prioridade 1: cidade específica do motorista
+      if (city) {
+        const { data: cityRow } = await supabaseAdmin
+          .from("lot_inventory")
+          .select("city, lot, total, reserved, sold")
+          .eq("lot", tryLot)
+          .eq("city", city)
+          .maybeSingle();
+
+        if (cityRow && cityRow.total - cityRow.reserved - cityRow.sold > 0) {
+          avail = cityRow;
+          selectedLot = tryLot;
+          break;
+        }
+      }
+
+      // Prioridade 2: qualquer cidade com vagas no mesmo lote
+      const { data: anyCity } = await supabaseAdmin
+        .from("lot_inventory")
+        .select("city, lot, total, reserved, sold")
+        .eq("lot", tryLot);
+
+      const found = (anyCity ?? []).find(r => r.total - r.reserved - r.sold > 0);
       if (found) {
         avail = found;
-        selectedLot = tryLot as LotName;
+        selectedLot = tryLot;
         break;
       }
     }
+
+    console.log("[RESERVE] lot solicitado:", lot, "selectedLot:", selectedLot, "cidade resolvida:", avail?.city ?? "nenhuma");
 
     if (!avail) {
       return NextResponse.json<ReserveResponse>(
