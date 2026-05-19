@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
       driver_city = "",
     } = body;
 
+    console.log("[RESERVE] request:", { lot, city: driver_city, driver_phone });
+
     if (!lot || !conversation_id) {
       return NextResponse.json<ReserveResponse>(
         { success: false, error: "lot e conversation_id são obrigatórios" },
@@ -261,6 +263,12 @@ export async function POST(req: NextRequest) {
     }
 
     const fallbackOcorreu = selectedLot !== lot;
+    console.log("[RESERVE] response:", {
+      success: true,
+      available: avail.total - avail.reserved - avail.sold,
+      selectedLot,
+      fallback: fallbackOcorreu,
+    });
     return NextResponse.json<ReserveResponse>({
       success: true,
       available: true,
