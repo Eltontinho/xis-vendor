@@ -98,8 +98,8 @@ export default function EltonChat() {
   const pendingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const apiCallCountRef = useRef(0);
   const cardKRROSentRef = useRef(false);
-  const clubCardRef = useRef(false);
-  const planCardRef = useRef(false);
+  const clubeCardSent = useRef(false);
+  const planCardSent = useRef(false);
   const flowStepRef = useRef<FlowStep>("nome");
   const corridasRef = useRef<number | null>(null);
   const ticketRef = useRef<number | null>(null);
@@ -327,17 +327,12 @@ export default function EltonChat() {
     await typeMessage(generateId(), m3, Date.now());
 
     await new Promise<void>(r => scheduleTimer(() => r(), 900));
-    if (!clubCardRef.current) {
-      clubCardRef.current = true;
+    if (!clubeCardSent.current) {
+      clubeCardSent.current = true;
       addImageCard("/cards/clube-todos.png");
     }
     setFlowStep("clube");
-
-    await new Promise<void>(r => scheduleTimer(() => r(), 1100));
-    if (flowStepRef.current === "clube") {
-      setFlowStep("plano");
-      typeMessage(generateId(), "Qual plano faz mais sentido pra você?", Date.now());
-    }
+    scheduleTimer(() => { setFlowStep("plano"); }, 1100);
   }
 
   // ─── Send text ───────────────────────────────────────────────────────────
@@ -350,8 +345,8 @@ export default function EltonChat() {
       clearAllTimers();
       localStorage.clear();
       localStorage.setItem("elton_reset", "true");
-      clubCardRef.current = false;
-      planCardRef.current = false;
+      clubeCardSent.current = false;
+      planCardSent.current = false;
       cardKRROSentRef.current = false;
       corridasRef.current = null;
       ticketRef.current = null;
@@ -399,13 +394,13 @@ export default function EltonChat() {
 
     // Reenvio de card por solicitação
     if (lowerText.includes("manda o card") || lowerText.includes("envia de novo")) {
-      if (planCardRef.current) {
+      if (planCardSent.current) {
         const img =
           selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
           : selectedPlan.label === "Ouro"  ? "/cards/clube-ouro.jpg"
           : "/cards/clube-prata.jpg";
         addImageCard(img);
-      } else if (clubCardRef.current) {
+      } else if (clubeCardSent.current) {
         addImageCard("/cards/clube-todos.png");
       }
     }
@@ -463,54 +458,40 @@ export default function EltonChat() {
           cardKRROSentRef.current = true;
           setFlowStep("card");
           scheduleTimer(() => {
-            if (flowStepRef.current === "card") {
-              addImageCard("/cards/cardk-rrobranco.png");
-              // 10s depois: pergunta automática
-              scheduleTimer(() => {
-                if (flowStepRef.current === "card") {
-                  setFlowStep("pergunta");
-                  typeMessage(
-                    generateId(),
-                    "O que você viu até agora que faz sentido pra você?",
-                    Date.now()
-                  );
-                }
-              }, 10000);
-            }
+            addImageCard("/cards/cardk-rrobranco.png");
           }, 2000);
         }
 
-        // Clube card: trigger exato
-        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubCardRef.current) {
-          clubCardRef.current = true;
+        // Clube card: trigger exato — uma única vez
+        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardSent.current) {
+          clubeCardSent.current = true;
           scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
         }
 
-        // Plan card
-        if (!planCardRef.current) {
-          let planImg: string | null = null;
-          if (data.message.includes("Platina") && data.message.includes("R$397")) {
-            planImg = "/cards/clube-platina.jpg";
-            setSelectedPlan(PLAN_META.platina);
-          } else if (data.message.includes("Ouro") && data.message.includes("R$347")) {
-            planImg = "/cards/clube-ouro.jpg";
-            setSelectedPlan(PLAN_META.ouro);
-          } else if (data.message.includes("Prata") && data.message.includes("R$297")) {
-            planImg = "/cards/clube-prata.jpg";
-            setSelectedPlan(PLAN_META.prata);
-          }
-          if (planImg) {
-            planCardRef.current = true;
-            const src = planImg;
-            scheduleTimer(() => addImageCard(src), 600);
-          }
+        // Plan card — uma única vez
+        const isPlatina = data.message.includes("Platina") && data.message.includes("R$397");
+        const isOuro    = data.message.includes("Ouro")    && data.message.includes("R$347");
+        const isPrata   = data.message.includes("Prata")   && data.message.includes("R$297");
+
+        if ((isPlatina || isOuro || isPrata) && !planCardSent.current) {
+          planCardSent.current = true;
+          const planImg = isPlatina ? "/cards/clube-platina.jpg"
+            : isOuro ? "/cards/clube-ouro.jpg"
+            : "/cards/clube-prata.jpg";
+          if (isPlatina) setSelectedPlan(PLAN_META.platina);
+          else if (isOuro) setSelectedPlan(PLAN_META.ouro);
+          else setSelectedPlan(PLAN_META.prata);
+          scheduleTimer(() => addImageCard(planImg), 600);
         }
 
         // Formulário
         const cadastroTriggers = [
-          "formulário", "garantir sua vaga", "número de membro", "reservar seu número",
-          "vou abrir o formulário", "formulário está aberto", "preenche com seus dados",
-          "link de pagamento aparece",
+          "formulário",
+          "garantir sua vaga",
+          "pode me passar seu nome completo",
+          "me passa seu nome completo",
+          "qual é o seu nome completo",
+          "vou gerar seu link",
         ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
           const planoDisp = await getPlanoDisponivel();
