@@ -415,6 +415,28 @@ export default function EltonChat() {
       setFormError(null);
     }
 
+    // Formulário — detectado imediatamente na mensagem do usuário
+    const userTriggers = [
+      "formulário",
+      "garantir sua vaga",
+      "quer garantir sua vaga",
+      "vou garantir",
+      "quero o platina",
+      "quero o ouro",
+      "quero o prata",
+      "fechar o plano",
+      "como faço pra entrar",
+    ];
+    if (userTriggers.some(t => lowerText.includes(t))) {
+      const userPlanKey = (["platina", "ouro", "prata"] as const).find(p => lowerText.includes(p));
+      const plan = userPlanKey ? PLAN_META[userPlanKey] : selectedPlan;
+      setSelectedPlan(plan);
+      fetchNextNumber(plan.lot);
+      userConfirmedPlanRef.current = true;
+      setFlowStep("form");
+      setShowForm(true);
+    }
+
     // Extração de números para conta
     const currentStep = flowStepRef.current;
     if (currentStep === "corridas") {
@@ -489,17 +511,23 @@ export default function EltonChat() {
           scheduleTimer(() => addImageCard(planImg), 600);
         }
 
-        // Formulário
+        // Formulário — detectado na resposta do Elton
         const cadastroTriggers = [
           "formulário",
           "garantir sua vaga",
+          "quer garantir sua vaga",
+          "vou garantir",
+          "quero o platina",
+          "quero o ouro",
+          "quero o prata",
+          "fechar o plano",
+          "como faço pra entrar",
           "pode me passar seu nome completo",
           "me passa seu nome completo",
           "qual é o seu nome completo",
           "vou gerar seu link",
         ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
-          // Plano mencionado pela IA tem prioridade; caso contrário usa o selectedPlan atual
           const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
           const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
           setSelectedPlan(plan);
