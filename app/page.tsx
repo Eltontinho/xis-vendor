@@ -24,12 +24,19 @@ const PLAN_META = {
 } as const;
 type PlanKey = keyof typeof PLAN_META;
 
-const IDLE_PROMPTS = [
-  "Ainda está por aí?",
-  "Posso te ajudar com mais algum detalhe?",
-  "Ficou alguma dúvida sobre a conta ou o plano?",
-  "A K-RRO segue à disposição. Quer avançar?",
-  "Aguardo seu contato novamente. Bom dia/tarde/noite.",
+const CADASTRO_TRIGGERS = [
+  "vou abrir o formulário",
+  "formulário já está aberto",
+  "preencha os dados",
+  "nome completo",
+  "whatsapp",
+  "email",
+  "placa",
+  "cidade",
+  "assim que preencher",
+  "me avisa aqui",
+  "confirmo os dados",
+  "gero seu link",
 ];
 
 const formatTime = (ts: number) => {
@@ -57,6 +64,16 @@ function extractNumber(text: string): number | null {
 }
 
 function fmtBR(n: number): string { return Math.round(n).toLocaleString("pt-BR"); }
+
+function cardLabel(src: string): string {
+  if (src.includes("cardk-rrobranco")) return "Clube K-RRO";
+  if (src.includes("clube-platina")) return "Plano Platina";
+  if (src.includes("clube-ouro")) return "Plano Ouro";
+  if (src.includes("clube-prata")) return "Plano Prata";
+  if (src.includes("clube-todos")) return "Planos disponíveis";
+  if (src.includes("krro-apresentacao")) return "Apresentação K-RRO";
+  return "K-RRO";
+}
 
 export default function EltonChat() {
   // ─── State ───────────────────────────────────────────────────────────────
@@ -107,6 +124,7 @@ export default function EltonChat() {
   const formTriggeredRef = useRef(false);
   const formSentRef = useRef(false);
   const formConfirmedRef = useRef(false);
+  const formDisplayedRef = useRef(false);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -329,6 +347,7 @@ export default function EltonChat() {
       formTriggeredRef.current = false;
       formSentRef.current = false;
       formConfirmedRef.current = false;
+      formDisplayedRef.current = false;
       setFormEverShown(false);
       setShowFormButton(false);
       setShowForm(false);
@@ -490,10 +509,9 @@ export default function EltonChat() {
           scheduleTimer(() => addImageCard(planImg), 600);
         }
 
-        // Formulário — detectado na resposta do Elton (requer palavra de ação + plano)
-        const hasAction = data.message.includes("garantir") || data.message.includes("link de pagamento") || data.message.includes("formulário");
-        const hasPlan   = data.message.includes("Platina") || data.message.includes("Ouro") || data.message.includes("Prata");
-        if (hasAction && hasPlan && !formTriggeredRef.current) {
+        // Formulário — detectado na resposta do Elton via CADASTRO_TRIGGERS
+        if (CADASTRO_TRIGGERS.some(t => msgLower.includes(t)) && !formDisplayedRef.current) {
+          formDisplayedRef.current = true;
           formTriggeredRef.current = true;
           const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
           const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
@@ -624,9 +642,15 @@ export default function EltonChat() {
                       </p>
                     )}
                     {msg.image && (
-                      <img src={msg.image} alt=""
-                        className="mt-2 rounded-xl w-full max-w-[260px] object-cover"
-                        style={{ cursor:"pointer" }} onClick={() => setModalSrc(msg.image!)} />
+                      <div className="mt-2">
+                        <p style={{ color:"#888",fontSize:11,marginBottom:4 }}>📎 Card: {cardLabel(msg.image)}</p>
+                        <img
+                          src={msg.image}
+                          alt={cardLabel(msg.image)}
+                          className="w-full max-w-md rounded-xl shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                          onClick={() => setModalSrc(msg.image!)}
+                        />
+                      </div>
                     )}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <span suppressHydrationWarning className="text-[10px] tabular-nums font-mono" style={{ color:"#666666" }}>
