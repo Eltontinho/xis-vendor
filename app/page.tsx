@@ -81,6 +81,8 @@ export default function EltonChat() {
   const [pendingCadastroData, setPendingCadastroData] = useState<{
     nome: string; telefone: string; email: string; placa: string; cidade: string;
   } | null>(null);
+  const [formEverShown, setFormEverShown] = useState(false);
+  const [showFormButton, setShowFormButton] = useState(false);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -107,6 +109,8 @@ export default function EltonChat() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleCountRef = useRef(0);
   const isIdleRef = useRef(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const formSentRef = useRef(false);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -159,32 +163,29 @@ export default function EltonChat() {
 
   useEffect(() => { return () => clearAllTimers(); }, []);
 
-  // Idle timer — dispara após 10s sem resposta do usuário
+  // Idle timer — dispara após 30s sem resposta do usuário (máximo 1 vez, só após 3 mensagens)
   useEffect(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (messages.length === 0) return;
+    if (messages.length <= 2) return;
 
     const lastMsg = messages[messages.length - 1];
     if (lastMsg.role === "user") {
+      lastActivityRef.current = Date.now();
       idleCountRef.current = 0;
       isIdleRef.current = false;
       return;
     }
-    // Não inicia timer enquanto IA está digitando ou carregando
     if (typingMessageId !== null || loading) return;
 
     idleTimerRef.current = setTimeout(() => {
-      if (isIdleRef.current || idleCountRef.current >= 5) return;
+      if (isIdleRef.current || idleCountRef.current >= 1) return;
+      if (Date.now() - lastActivityRef.current < 30000) return;
       isIdleRef.current = true;
       idleCountRef.current++;
-      const text = IDLE_PROMPTS[idleCountRef.current - 1];
       setMessages(prev => [...prev, {
-        id: `idle-${Date.now()}`, role: "elton" as const, text, timestamp: Date.now(),
+        id: `idle-${Date.now()}`, role: "elton" as const, text: IDLE_PROMPTS[0], timestamp: Date.now(),
       }]);
-      if (idleCountRef.current >= 5) {
-        setTimeout(() => { if (inputRef.current) inputRef.current.disabled = true; }, 500);
-      }
-    }, 10000);
+    }, 30000);
 
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
   }, [messages, typingMessageId, loading]);
@@ -256,6 +257,8 @@ export default function EltonChat() {
 
       if (data.success === true && data.checkout_url) {
         setFormError(null);
+        formSentRef.current = true;
+        setShowFormButton(false);
         if (data.lotUsado && data.lotUsado !== selectedPlan.lot) {
           const fb: typeof PLAN_META[PlanKey] =
             data.lotUsado === "lote3" ? PLAN_META.platina
@@ -352,7 +355,11 @@ export default function EltonChat() {
       formTriggeredRef.current = false;
       idleCountRef.current = 0;
       isIdleRef.current = false;
+      formSentRef.current = false;
+      setFormEverShown(false);
+      setShowFormButton(false);
       setShowForm(false);
+      setMessages([]);
       setModalSrc(null);
       setFormError(null);
       setPendingFallback(null);
@@ -409,14 +416,17 @@ export default function EltonChat() {
 
     const lowerText = text.trim().toLowerCase();
 
-    // Reenvio de card por solicitação
-    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo")) {
+    // Reenvio de card; reabre formulário se foi fechado e ainda não enviado
+    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo") || lowerText.includes("fechei")) {
       if (planCardSent.current) {
         const img = selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
           : selectedPlan.label === "Ouro" ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
         addImageCard(img);
       } else if (clubeCardSent.current) {
         addImageCard("/cards/clube-todos.png");
+      }
+      if (formTriggeredRef.current && !formSentRef.current) {
+        setShowForm(true);
       }
     }
 
@@ -435,6 +445,8 @@ export default function EltonChat() {
       userConfirmedPlanRef.current = true;
       formTriggeredRef.current = true;
       setFlowStep("form");
+      setFormEverShown(true);
+      setShowFormButton(true);
       setShowForm(true);
     }
 
@@ -516,6 +528,8 @@ export default function EltonChat() {
           fetchNextNumber(plan.lot);
           userConfirmedPlanRef.current = true;
           setFlowStep("form");
+          setFormEverShown(true);
+          setShowFormButton(true);
           setShowForm(true);
         }
 
@@ -669,6 +683,21 @@ export default function EltonChat() {
           </div>
         </div>
 
+        {/* Botão flutuante — Abrir Cadastro */}
+        {showFormButton && !showForm && pendingCadastroData === null && (
+          <button onClick={() => setShowForm(true)}
+            style={{ position:"absolute",bottom:64,right:12,zIndex:20,backgroundColor:"#0066ff",color:"#fff",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,102,255,0.5)" }}>
+            📝 Abrir Cadastro
+          </button>
+        )}
+        {/* Botão flutuante — Confirmar dados */}
+        {pendingCadastroData !== null && (
+          <button onClick={async () => { const d = pendingCadastroData; setPendingCadastroData(null); await doReserve(d); }}
+            style={{ position:"absolute",bottom:64,right:12,zIndex:20,backgroundColor:"#00c853",color:"#fff",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,200,83,0.5)" }}>
+            ✓ Confirmar dados
+          </button>
+        )}
+
         {/* Input */}
         <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
           style={{ backgroundColor:"#000000",borderTop:"1px solid #0066ff" }}>
@@ -707,12 +736,12 @@ export default function EltonChat() {
         </div>
       </div>
 
-      {/* Formulário fixo — slide-up panel */}
-      {showForm && (
-        <div className="form-panel">
+      {/* Formulário fixo — mantido montado para preservar dados preenchidos */}
+      {formEverShown && (
+        <div className="form-panel" style={{ display: showForm ? undefined : "none" }}>
           <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
             <span style={{ color:"#aaaaaa",fontSize:12 }}>Formulário de cadastro</span>
-            <button onClick={() => { setShowForm(false); setFormError(null); }}
+            <button onClick={() => setShowForm(false)}
               style={{ background:"none",border:"none",color:"#666",fontSize:20,cursor:"pointer",lineHeight:1,padding:4 }}
               aria-label="Fechar formulário">×</button>
           </div>
