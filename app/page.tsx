@@ -103,6 +103,8 @@ export default function EltonChat() {
   const flowStepRef = useRef<FlowStep>("nome");
   const corridasRef = useRef<number | null>(null);
   const ticketRef = useRef<number | null>(null);
+  const esgotamentoRef = useRef(false);
+  const userConfirmedPlanRef = useRef(false);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -275,7 +277,8 @@ export default function EltonChat() {
             Date.now()
           );
         }
-      } else if (!data.available && data.error === "Lote esgotado") {
+      } else if (data.error === "Lote esgotado" && !esgotamentoRef.current && userConfirmedPlanRef.current) {
+        esgotamentoRef.current = true;
         setFormError(null);
         setShowForm(false);
         typeMessage(
@@ -350,6 +353,8 @@ export default function EltonChat() {
       cardKRROSentRef.current = false;
       corridasRef.current = null;
       ticketRef.current = null;
+      esgotamentoRef.current = false;
+      userConfirmedPlanRef.current = false;
       setShowForm(false);
       setModalSrc(null);
       setFormError(null);
@@ -494,22 +499,14 @@ export default function EltonChat() {
           "vou gerar seu link",
         ];
         if (cadastroTriggers.some(t => msgLower.includes(t))) {
-          const planoDisp = await getPlanoDisponivel();
-          if (!planoDisp) {
-            typeMessage(
-              generateId(),
-              "O Clube K-RRO encerrou as vagas para sua região. Após 01/06/2026, a taxa padrão será 85% por corrida. Quer entrar na lista de espera para o próximo lote?",
-              Date.now()
-            );
-          } else {
-            // Plano mencionado pela IA tem prioridade; caso contrário usa o disponível
-            const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
-            const plan = aiPlanKey ? PLAN_META[aiPlanKey] : planoDisp;
-            setSelectedPlan(plan);
-            fetchNextNumber(plan.lot);
-            setFlowStep("form");
-            setShowForm(true);
-          }
+          // Plano mencionado pela IA tem prioridade; caso contrário usa o selectedPlan atual
+          const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
+          const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
+          setSelectedPlan(plan);
+          fetchNextNumber(plan.lot);
+          userConfirmedPlanRef.current = true;
+          setFlowStep("form");
+          setShowForm(true);
         }
 
         // Transições de step baseadas no step anterior
