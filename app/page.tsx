@@ -105,12 +105,8 @@ export default function EltonChat() {
   const esgotadoShownRef = useRef(false);
   const userConfirmedPlanRef = useRef(false);
   const formTriggeredRef = useRef(false);
-  // Idle timer refs
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleCountRef = useRef(0);
-  const isIdleRef = useRef(false);
-  const lastActivityRef = useRef<number>(Date.now());
   const formSentRef = useRef(false);
+  const formConfirmedRef = useRef(false);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -125,7 +121,6 @@ export default function EltonChat() {
     pendingTimersRef.current.forEach(clearTimeout);
     pendingTimersRef.current = [];
     if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
-    if (idleTimerRef.current) { clearTimeout(idleTimerRef.current); idleTimerRef.current = null; }
   }
 
   // ─── Effects ─────────────────────────────────────────────────────────────
@@ -162,33 +157,6 @@ export default function EltonChat() {
   }, [showEntrada, modalSrc]);
 
   useEffect(() => { return () => clearAllTimers(); }, []);
-
-  // Idle timer — dispara após 30s sem resposta do usuário (máximo 1 vez, só após 3 mensagens)
-  useEffect(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (messages.length <= 2) return;
-
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg.role === "user") {
-      lastActivityRef.current = Date.now();
-      idleCountRef.current = 0;
-      isIdleRef.current = false;
-      return;
-    }
-    if (typingMessageId !== null || loading) return;
-
-    idleTimerRef.current = setTimeout(() => {
-      if (isIdleRef.current || idleCountRef.current >= 1) return;
-      if (Date.now() - lastActivityRef.current < 30000) return;
-      isIdleRef.current = true;
-      idleCountRef.current++;
-      setMessages(prev => [...prev, {
-        id: `idle-${Date.now()}`, role: "elton" as const, text: IDLE_PROMPTS[0], timestamp: Date.now(),
-      }]);
-    }, 30000);
-
-    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
-  }, [messages, typingMessageId, loading]);
 
   // ─── Typing animation ────────────────────────────────────────────────────
   function typeMessage(id: string, fullText: string, timestamp: number): Promise<void> {
@@ -273,11 +241,11 @@ export default function EltonChat() {
             `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
             Date.now());
         }
-      } else if (data.error === "Lote esgotado" && !esgotadoShownRef.current && userConfirmedPlanRef.current) {
+      } else if (data.error === "Lote esgotado") {
+        // Registra silenciosamente; não exibe no chat automaticamente
         esgotadoShownRef.current = true;
-        typeMessage(generateId(),
-          "O Clube K-RRO encerrou as vagas para sua região. Após 01/06/2026, a taxa padrão será 85% por corrida. Quer entrar na lista de espera para o próximo lote?",
-          Date.now());
+        setFormError("Vagas esgotadas para este plano no momento.");
+        setShowForm(true);
       } else {
         const errMsg = data.error || "Falha ao gerar link. Tente novamente ou digite /reset.";
         setFormError(errMsg);
@@ -293,18 +261,24 @@ export default function EltonChat() {
     }
   }
 
-  // ─── Form submit — mostra echo e aguarda confirmação ─────────────────────
+  // ─── Form submit — mostra echo 1x, nas resubmissões vai direto ao reserve ─
   async function handleCadastroSubmit(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
-    const dadosStr = `Nome: ${dados.nome} | Tel: ${dados.telefone} | Email: ${dados.email} | Placa: ${dados.placa} | Cidade: ${dados.cidade}`;
-    setMessages(prev => [...prev, {
-      id: `confirm-${Date.now()}`,
-      role: "elton" as const,
-      text: `Confira seus dados: ${dadosStr}. Tudo certo? Assim que confirmar, gero seu link de pagamento.`,
-      timestamp: Date.now(),
-    }]);
     setShowForm(false);
     setFormError(null);
-    setPendingCadastroData(dados);
+    if (!formConfirmedRef.current) {
+      formConfirmedRef.current = true;
+      const dadosStr = `Nome: ${dados.nome} | Tel: ${dados.telefone} | Email: ${dados.email} | Placa: ${dados.placa} | Cidade: ${dados.cidade}`;
+      setMessages(prev => [...prev, {
+        id: `confirm-${Date.now()}`,
+        role: "elton" as const,
+        text: `Confira seus dados: ${dadosStr}. Tudo certo? Assim que confirmar, gero seu link de pagamento.`,
+        timestamp: Date.now(),
+      }]);
+      setPendingCadastroData(dados);
+    } else {
+      setPendingCadastroData(null);
+      await doReserve(dados);
+    }
   }
 
   // ─── Conta automática ────────────────────────────────────────────────────
@@ -353,9 +327,8 @@ export default function EltonChat() {
       esgotadoShownRef.current = false;
       userConfirmedPlanRef.current = false;
       formTriggeredRef.current = false;
-      idleCountRef.current = 0;
-      isIdleRef.current = false;
       formSentRef.current = false;
+      formConfirmedRef.current = false;
       setFormEverShown(false);
       setShowFormButton(false);
       setShowForm(false);
