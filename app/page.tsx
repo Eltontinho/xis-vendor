@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import CadastroForm from "@/components/CadastroForm";
 import CardModal from "@/components/CardModal";
 
 type Message = {
@@ -24,6 +23,17 @@ const PLAN_META = {
 } as const;
 type PlanKey = keyof typeof PLAN_META;
 
+type FormData = { nome: string; telefone: string; email: string; placa: string; cidade: string };
+type DataCollection = { step: number; formData: Partial<FormData> } | null;
+
+const COLETA_PERGUNTAS = [
+  "Qual é o seu nome completo?",
+  "Qual é o seu WhatsApp com DDD? (Ex: 51 99999-8888)",
+  "Qual é o seu e-mail?",
+  "Qual é a placa do seu veículo? (Ex: ABC1D23)",
+  "Em qual cidade você trabalha?",
+];
+
 function checkFormTrigger(message: string): boolean {
   const lower = message.toLowerCase();
   const hasPlan = message.includes("Platina") || message.includes("Ouro") || message.includes("Prata");
@@ -34,7 +44,9 @@ function checkFormTrigger(message: string): boolean {
     lower.includes("cadastro") ||
     lower.includes("link") ||
     lower.includes("dados") ||
-    lower.includes("membro")
+    lower.includes("membro") ||
+    lower.includes("para garantir") ||
+    lower.includes("garantir sua vaga")
   );
 }
 
@@ -84,9 +96,6 @@ export default function EltonChat() {
   const [modalSrc, setModalSrc] = useState<string | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [showEntrada, setShowEntrada] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
   const [membroNumero, setMembroNumero] = useState<string | null>(null);
   const [flowStep, setFlowStep] = useState<FlowStep>("nome");
@@ -94,11 +103,8 @@ export default function EltonChat() {
     checkout_url: string; lotUsado: string;
     planoFallback: typeof PLAN_META[PlanKey]; mensagem: string;
   } | null>(null);
-  const [pendingCadastroData, setPendingCadastroData] = useState<{
-    nome: string; telefone: string; email: string; placa: string; cidade: string;
-  } | null>(null);
-  const [formEverShown, setFormEverShown] = useState(false);
-  const [showFormButton, setShowFormButton] = useState(false);
+  const [dataCollection, setDataCollection] = useState<DataCollection>(null);
+  const [showCollectionButton, setShowCollectionButton] = useState(false);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -120,10 +126,8 @@ export default function EltonChat() {
   const ticketRef = useRef<number | null>(null);
   const esgotadoShownRef = useRef(false);
   const userConfirmedPlanRef = useRef(false);
-  const formTriggeredRef = useRef(false);
-  const formSentRef = useRef(false);
-  const formConfirmedRef = useRef(false);
-  const formOpenedRef = useRef(false);
+  const dataStartedRef = useRef(false);
+  const cityFromEarlierRef = useRef<string | null>(null);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -221,8 +225,8 @@ export default function EltonChat() {
     } catch { /* ignore */ }
   }
 
-  // ─── Reserve API call (chamada após confirmação dos dados) ────────────────
-  async function doReserve(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
+  // ─── Reserve API ─────────────────────────────────────────────────────────
+  async function doReserve(dados: FormData) {
     setLoading(true);
     try {
       const res = await fetch("/api/reserve", {
@@ -238,12 +242,9 @@ export default function EltonChat() {
       });
       const data = await res.json();
       console.log("[RESERVE]", data);
-      console.log("[CADASTRO] resposta do reserve:", JSON.stringify(data));
 
       if (data.success === true && data.checkout_url) {
-        setFormError(null);
-        formSentRef.current = true;
-        setShowFormButton(false);
+        setShowCollectionButton(false);
         if (data.lotUsado && data.lotUsado !== selectedPlan.lot) {
           const fb: typeof PLAN_META[PlanKey] =
             data.lotUsado === "lote3" ? PLAN_META.platina
@@ -255,47 +256,41 @@ export default function EltonChat() {
             Date.now());
         } else {
           typeMessage(generateId(),
-            `Aqui está seu link de pagamento: ${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
+            `Aqui está seu link de pagamento:\n${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
             Date.now());
         }
       } else if (data.error === "Lote esgotado") {
-        // Registra silenciosamente; não exibe no chat automaticamente
         esgotadoShownRef.current = true;
-        setFormError("Vagas esgotadas para este plano no momento.");
-        setShowForm(true);
+        typeMessage(generateId(),
+          "As vagas para este plano esgotaram na sua região. Posso te colocar na lista de espera — quer continuar?",
+          Date.now());
       } else {
         const errMsg = data.error || "Falha ao gerar link. Tente novamente ou digite /reset.";
-        setFormError(errMsg);
-        setShowForm(true);
-        typeMessage(generateId(), `Erro ao gerar o link: ${errMsg}`, Date.now());
+        typeMessage(generateId(), `Erro ao processar: ${errMsg}`, Date.now());
       }
     } catch (err) {
-      console.error("[CADASTRO]", err);
-      setFormError("Falha ao gerar link. Tente novamente ou digite /reset.");
-      setShowForm(true);
+      console.error("[RESERVE]", err);
+      typeMessage(generateId(), "Erro de conexão ao gerar o link. Tente novamente.", Date.now());
     } finally {
       setLoading(false);
     }
   }
 
-  // ─── Form submit — mostra echo 1x, nas resubmissões vai direto ao reserve ─
-  async function handleCadastroSubmit(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
-    setShowForm(false);
-    setFormError(null);
-    if (!formConfirmedRef.current) {
-      formConfirmedRef.current = true;
-      const dadosStr = `Nome: ${dados.nome} | Tel: ${dados.telefone} | Email: ${dados.email} | Placa: ${dados.placa} | Cidade: ${dados.cidade}`;
-      setMessages(prev => [...prev, {
-        id: `confirm-${Date.now()}`,
-        role: "elton" as const,
-        text: `Confira seus dados: ${dadosStr}. Tudo certo? Assim que confirmar, gero seu link de pagamento.`,
-        timestamp: Date.now(),
-      }]);
-      setPendingCadastroData(dados);
-    } else {
-      setPendingCadastroData(null);
-      await doReserve(dados);
-    }
+  // ─── Inicia coleta de dados via chat ─────────────────────────────────────
+  function startDataCollection(plan: typeof PLAN_META[PlanKey]) {
+    if (dataStartedRef.current) return;
+    dataStartedRef.current = true;
+    userConfirmedPlanRef.current = true;
+    setSelectedPlan(plan);
+    fetchNextNumber(plan.lot);
+    setFlowStep("form");
+    setShowCollectionButton(false);
+    const initialData: Partial<FormData> = {};
+    if (cityFromEarlierRef.current) initialData.cidade = cityFromEarlierRef.current;
+    setDataCollection({ step: 0, formData: initialData });
+    scheduleTimer(() => {
+      typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
+    }, 400);
   }
 
   // ─── Conta automática ────────────────────────────────────────────────────
@@ -343,18 +338,13 @@ export default function EltonChat() {
       ticketRef.current = null;
       esgotadoShownRef.current = false;
       userConfirmedPlanRef.current = false;
-      formTriggeredRef.current = false;
-      formSentRef.current = false;
-      formConfirmedRef.current = false;
-      formOpenedRef.current = false;
-      setFormEverShown(false);
-      setShowFormButton(false);
-      setShowForm(false);
+      dataStartedRef.current = false;
+      cityFromEarlierRef.current = null;
+      setDataCollection(null);
+      setShowCollectionButton(false);
       setMessages([]);
       setModalSrc(null);
-      setFormError(null);
       setPendingFallback(null);
-      setPendingCadastroData(null);
       window.location.reload();
       return;
     }
@@ -370,7 +360,7 @@ export default function EltonChat() {
         const { checkout_url, planoFallback } = pendingFallback;
         setPendingFallback(null);
         setSelectedPlan(planoFallback);
-        typeMessage(generateId(), `Perfeito! Aqui está seu link: ${checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`, Date.now());
+        typeMessage(generateId(), `Perfeito! Aqui está seu link:\n${checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`, Date.now());
         return;
       }
       if (nao) {
@@ -382,33 +372,69 @@ export default function EltonChat() {
       return;
     }
 
-    // Confirmação dos dados do cadastro
-    if (pendingCadastroData !== null) {
-      const sim = /\b(sim|s\b|pode|correto|certo|ok\b|claro|confirmo|tá|ta\b|tudo certo)\b/i.test(text.trim());
-      const nao = /\b(não|nao|n\b|cancela|errado|incorreto|corrigir|corrige|muda)\b/i.test(text.trim());
+    // ─── Coleta de dados inline ───────────────────────────────────────────
+    if (dataCollection !== null) {
       const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
       setMessages(prev => [...prev, userMsg]);
       setInput("");
-      if (sim) {
-        const dados = pendingCadastroData;
-        setPendingCadastroData(null);
-        await doReserve(dados);
+
+      const { step, formData } = dataCollection;
+      const newData = { ...formData };
+
+      // Confirmação final (step 5)
+      if (step === 5) {
+        const sim = /\b(sim|s\b|pode|correto|certo|ok\b|claro|confirmo|tá|ta\b|tudo certo)\b/i.test(text.trim());
+        const nao = /\b(não|nao|n\b|cancela|errado|incorreto|corrigir|recomeçar|muda)\b/i.test(text.trim());
+        if (sim) {
+          setDataCollection(null);
+          await doReserve(newData as FormData);
+          return;
+        }
+        if (nao) {
+          dataStartedRef.current = false;
+          setDataCollection({ step: 0, formData: {} });
+          dataStartedRef.current = true;
+          typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
+          return;
+        }
+        typeMessage(generateId(), "Digite 'sim' para confirmar os dados ou 'não' para recomeçar.", Date.now());
         return;
       }
-      if (nao) {
-        setPendingCadastroData(null);
-        setShowForm(true);
-        typeMessage(generateId(), "Sem problema! O formulário está aberto para você corrigir os dados.", Date.now());
+
+      // Armazena resposta no campo correto
+      if (step === 0) newData.nome = text.trim();
+      else if (step === 1) newData.telefone = text.trim();
+      else if (step === 2) newData.email = text.trim();
+      else if (step === 3) newData.placa = text.trim().toUpperCase().replace(/\s/g, "");
+      else if (step === 4) newData.cidade = text.trim();
+
+      const nextStep = step + 1;
+
+      // Pula pergunta de cidade se já foi capturada na qualificação
+      const temCidade = !!(newData.cidade);
+      if (nextStep === 4 && temCidade) {
+        const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
+        setDataCollection({ step: 5, formData: newData });
+        typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
         return;
       }
-      typeMessage(generateId(), "Digite 'sim' para confirmar os dados ou 'não' para corrigir.", Date.now());
+
+      if (nextStep === 5) {
+        const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
+        setDataCollection({ step: 5, formData: newData });
+        typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
+        return;
+      }
+
+      setDataCollection({ step: nextStep, formData: newData });
+      typeMessage(generateId(), COLETA_PERGUNTAS[nextStep], Date.now());
       return;
     }
 
     const lowerText = text.trim().toLowerCase();
 
-    // Reenvio de card; reabre formulário se foi fechado e ainda não enviado
-    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo") || lowerText.includes("fechei")) {
+    // Reenvio de card por solicitação
+    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo")) {
       if (planCardSent.current) {
         const img = selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
           : selectedPlan.label === "Ouro" ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
@@ -416,32 +442,24 @@ export default function EltonChat() {
       } else if (clubeCardSent.current) {
         addImageCard("/cards/clube-todos.png");
       }
-      if (formTriggeredRef.current && !formSentRef.current) {
-        setShowForm(true);
-      }
     }
 
-    if (showForm) { setShowForm(false); setFormError(null); }
-
-    // Formulário — detectado imediatamente na mensagem do usuário
+    // Gatilho manual do usuário para iniciar cadastro
     const userTriggers = [
-      "formulário", "garantir sua vaga", "quer garantir sua vaga", "vou garantir",
-      "quero o platina", "quero o ouro", "quero o prata", "fechar o plano", "como faço pra entrar",
+      "quero garantir", "garantir minha vaga", "quero me cadastrar",
+      "quero o platina", "quero o ouro", "quero o prata", "fechar o plano",
     ];
-    if (userTriggers.some(t => lowerText.includes(t))) {
+    if (userTriggers.some(t => lowerText.includes(t)) && !dataStartedRef.current) {
       const userPlanKey = (["platina", "ouro", "prata"] as const).find(p => lowerText.includes(p));
       const plan = userPlanKey ? PLAN_META[userPlanKey] : selectedPlan;
-      setSelectedPlan(plan);
-      fetchNextNumber(plan.lot);
-      userConfirmedPlanRef.current = true;
-      formTriggeredRef.current = true;
-      setFlowStep("form");
-      setFormEverShown(true);
-      setShowFormButton(true);
-      setShowForm(true);
+      const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
+      setMessages(prev => [...prev, userMsg]);
+      setInput("");
+      startDataCollection(plan);
+      return;
     }
 
-    // Extração de números para conta
+    // Extração de números para conta + cidade para pré-preencher coleta
     const currentStep = flowStepRef.current;
     if (currentStep === "corridas") {
       const n = extractNumber(text);
@@ -449,6 +467,8 @@ export default function EltonChat() {
     } else if (currentStep === "ticket") {
       const n = extractNumber(text);
       if (n && n > 0) ticketRef.current = n;
+    } else if (currentStep === "cidade") {
+      cityFromEarlierRef.current = text.trim();
     }
 
     const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
@@ -489,16 +509,16 @@ export default function EltonChat() {
           scheduleTimer(() => { addImageCard("/cards/cardk-rrobranco.png"); }, 2000);
         }
 
-        // Clube card
-        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardSent.current) {
+        // Clube card — dispara quando Elton menciona "Clube K-RRO"
+        if (data.message.includes("Clube K-RRO") && !clubeCardSent.current) {
           clubeCardSent.current = true;
           scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
         }
 
-        // Plan card
-        const isPlatina = data.message.includes("Platina") && data.message.includes("R$397");
-        const isOuro    = data.message.includes("Ouro")    && data.message.includes("R$347");
-        const isPrata   = data.message.includes("Prata")   && data.message.includes("R$297");
+        // Plan card — suporta "R$397" e "R$ 397"
+        const isPlatina = data.message.includes("Platina") && (data.message.includes("R$397") || data.message.includes("R$ 397"));
+        const isOuro    = data.message.includes("Ouro")    && (data.message.includes("R$347") || data.message.includes("R$ 347"));
+        const isPrata   = data.message.includes("Prata")   && (data.message.includes("R$297") || data.message.includes("R$ 297"));
         if ((isPlatina || isOuro || isPrata) && !planCardSent.current) {
           planCardSent.current = true;
           const planImg = isPlatina ? "/cards/clube-platina.jpg" : isOuro ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
@@ -508,19 +528,12 @@ export default function EltonChat() {
           scheduleTimer(() => addImageCard(planImg), 600);
         }
 
-        // Formulário — detecção por intenção + contexto de plano
-        if (checkFormTrigger(data.message) && !formOpenedRef.current) {
-          formOpenedRef.current = true;
-          formTriggeredRef.current = true;
+        // Inicia coleta de dados via chat (substitui modal)
+        if (checkFormTrigger(data.message) && !dataStartedRef.current) {
           const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
           const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
-          setSelectedPlan(plan);
-          fetchNextNumber(plan.lot);
-          userConfirmedPlanRef.current = true;
-          setFlowStep("form");
-          setFormEverShown(true);
-          setShowFormButton(true);
-          setShowForm(true);
+          setShowCollectionButton(true);
+          scheduleTimer(() => startDataCollection(plan), 800);
         }
 
         // Step transitions
@@ -569,7 +582,6 @@ export default function EltonChat() {
         .page-send:hover:not(:disabled){background:#0052cc!important}
         .page-online{animation:pulse-green 2s infinite}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-        .form-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;background:#0a0a0f;border-top:1px solid #0066ff;border-radius:16px 16px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px)) 16px;z-index:50}
       `}</style>
 
       {/* Modal de entrada */}
@@ -618,7 +630,6 @@ export default function EltonChat() {
           <div className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2" style={{ zIndex:1 }}>
             {messages.map((msg) => {
               const isElton = msg.role === "elton";
-              // Filtra mensagens vazias ou que só contenham placeholders *[...]*
               if (isElton && msg.text !== undefined && !msg.image && !msg.audioUrl) {
                 const clean = msg.text.replace(/\*\[.*?\]\*/g, "").trim();
                 if (!clean) return null;
@@ -679,20 +690,12 @@ export default function EltonChat() {
           </div>
         </div>
 
-        {/* Botão flutuante — Confirmar dados */}
-        {pendingCadastroData !== null && (
-          <button onClick={async () => { const d = pendingCadastroData; setPendingCadastroData(null); await doReserve(d); }}
-            style={{ position:"absolute",bottom:64,right:12,zIndex:20,backgroundColor:"#00c853",color:"#fff",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,200,83,0.5)" }}>
-            ✓ Confirmar dados
-          </button>
-        )}
-
-        {/* Botão fallback — abre formulário se o Elton já o acionou mas a UI falhou */}
-        {showFormButton && !showForm && (
+        {/* Botão de emergência — abre coleta se trigger detectado mas não iniciou */}
+        {showCollectionButton && dataCollection === null && (
           <div style={{ padding:"6px 12px",flexShrink:0,backgroundColor:"#000" }}>
-            <button onClick={() => setShowForm(true)}
+            <button onClick={() => startDataCollection(selectedPlan)}
               style={{ width:"100%",backgroundColor:"#0066ff",color:"#fff",border:"none",borderRadius:8,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:0.3 }}>
-              📋 Abrir Formulário de Cadastro
+              📋 Abrir Cadastro
             </button>
           </div>
         )}
@@ -706,7 +709,7 @@ export default function EltonChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); } }}
-            placeholder="Digite uma mensagem"
+            placeholder={dataCollection !== null ? "Digite sua resposta..." : "Digite uma mensagem"}
             disabled={loading || typingMessageId !== null || showEntrada}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{ backgroundColor:"#0d1117",border:"1px solid #222",color:"#ffffff",fontSize:16 }}
@@ -734,26 +737,6 @@ export default function EltonChat() {
           )}
         </div>
       </div>
-
-      {/* Formulário fixo — mantido montado para preservar dados preenchidos */}
-      {formEverShown && (
-        <div className="form-panel" style={{ display: showForm ? undefined : "none" }}>
-          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
-            <span style={{ color:"#aaaaaa",fontSize:12 }}>Formulário de cadastro</span>
-            <button onClick={() => setShowForm(false)}
-              style={{ background:"none",border:"none",color:"#666",fontSize:20,cursor:"pointer",lineHeight:1,padding:4 }}
-              aria-label="Fechar formulário">×</button>
-          </div>
-          {formError && (
-            <div style={{ backgroundColor:"#2a0a0a",border:"1px solid #ef4444",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#ef4444",fontSize:12 }}>
-              {formError}
-            </div>
-          )}
-          <CadastroForm plano={selectedPlan.label} valor={selectedPlan.valor}
-            loading={formLoading} membroNumero={membroNumero ?? undefined}
-            onSubmit={handleCadastroSubmit} />
-        </div>
-      )}
 
       {modalSrc && <CardModal src={modalSrc} onClose={() => setModalSrc(null)} />}
     </div>
