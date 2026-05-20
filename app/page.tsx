@@ -25,17 +25,8 @@ const PLAN_META = {
 type PlanKey = keyof typeof PLAN_META;
 
 const CADASTRO_TRIGGERS = [
-  "vou abrir o formulário",
-  "formulário já está aberto",
-  "preencha os dados",
-  "nome completo",
-  "whatsapp",
-  "email",
-  "placa",
-  "cidade",
-  "assim que preencher",
-  "me avisa aqui",
-  "confirmo os dados",
+  "formulário de cadastro",
+  "preencher os dados",
   "gero seu link",
 ];
 
@@ -509,8 +500,9 @@ export default function EltonChat() {
           scheduleTimer(() => addImageCard(planImg), 600);
         }
 
-        // Formulário — detectado na resposta do Elton via CADASTRO_TRIGGERS
-        if (CADASTRO_TRIGGERS.some(t => msgLower.includes(t)) && !formDisplayedRef.current) {
+        // Formulário — detectado na resposta do Elton; requer trigger + plano já escolhido
+        const hasPlanMention = data.message.includes("Platina") || data.message.includes("Ouro") || data.message.includes("Prata");
+        if (CADASTRO_TRIGGERS.some(t => msgLower.includes(t)) && hasPlanMention && !formDisplayedRef.current) {
           formDisplayedRef.current = true;
           formTriggeredRef.current = true;
           const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
@@ -680,13 +672,6 @@ export default function EltonChat() {
           </div>
         </div>
 
-        {/* Botão flutuante — Abrir Cadastro */}
-        {showFormButton && !showForm && pendingCadastroData === null && (
-          <button onClick={() => setShowForm(true)}
-            style={{ position:"absolute",bottom:64,right:12,zIndex:20,backgroundColor:"#0066ff",color:"#fff",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,102,255,0.5)" }}>
-            📝 Abrir Cadastro
-          </button>
-        )}
         {/* Botão flutuante — Confirmar dados */}
         {pendingCadastroData !== null && (
           <button onClick={async () => { const d = pendingCadastroData; setPendingCadastroData(null); await doReserve(d); }}
