@@ -24,11 +24,19 @@ const PLAN_META = {
 } as const;
 type PlanKey = keyof typeof PLAN_META;
 
-const CADASTRO_TRIGGERS = [
-  "formulário de cadastro",
-  "preencher os dados",
-  "gero seu link",
-];
+function checkFormTrigger(message: string): boolean {
+  const lower = message.toLowerCase();
+  const hasPlan = message.includes("Platina") || message.includes("Ouro") || message.includes("Prata");
+  if (!hasPlan) return false;
+  return (
+    lower.includes("formulário") ||
+    lower.includes("preencher") ||
+    lower.includes("cadastro") ||
+    lower.includes("link") ||
+    lower.includes("dados") ||
+    lower.includes("membro")
+  );
+}
 
 const formatTime = (ts: number) => {
   const d = new Date(ts);
@@ -115,7 +123,7 @@ export default function EltonChat() {
   const formTriggeredRef = useRef(false);
   const formSentRef = useRef(false);
   const formConfirmedRef = useRef(false);
-  const formDisplayedRef = useRef(false);
+  const formOpenedRef = useRef(false);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -338,7 +346,7 @@ export default function EltonChat() {
       formTriggeredRef.current = false;
       formSentRef.current = false;
       formConfirmedRef.current = false;
-      formDisplayedRef.current = false;
+      formOpenedRef.current = false;
       setFormEverShown(false);
       setShowFormButton(false);
       setShowForm(false);
@@ -500,10 +508,9 @@ export default function EltonChat() {
           scheduleTimer(() => addImageCard(planImg), 600);
         }
 
-        // Formulário — detectado na resposta do Elton; requer trigger + plano já escolhido
-        const hasPlanMention = data.message.includes("Platina") || data.message.includes("Ouro") || data.message.includes("Prata");
-        if (CADASTRO_TRIGGERS.some(t => msgLower.includes(t)) && hasPlanMention && !formDisplayedRef.current) {
-          formDisplayedRef.current = true;
+        // Formulário — detecção por intenção + contexto de plano
+        if (checkFormTrigger(data.message) && !formOpenedRef.current) {
+          formOpenedRef.current = true;
           formTriggeredRef.current = true;
           const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
           const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
@@ -678,6 +685,16 @@ export default function EltonChat() {
             style={{ position:"absolute",bottom:64,right:12,zIndex:20,backgroundColor:"#00c853",color:"#fff",border:"none",borderRadius:20,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,200,83,0.5)" }}>
             ✓ Confirmar dados
           </button>
+        )}
+
+        {/* Botão fallback — abre formulário se o Elton já o acionou mas a UI falhou */}
+        {showFormButton && !showForm && (
+          <div style={{ padding:"6px 12px",flexShrink:0,backgroundColor:"#000" }}>
+            <button onClick={() => setShowForm(true)}
+              style={{ width:"100%",backgroundColor:"#0066ff",color:"#fff",border:"none",borderRadius:8,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:0.3 }}>
+              📋 Abrir Formulário de Cadastro
+            </button>
+          </div>
         )}
 
         {/* Input */}
