@@ -21,7 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: response });
 
   } catch (error) {
-    console.error("[/api/elton] error:", error);
+    console.error("[/api/elton] FULL ERROR:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      env: {
+        hasKey: !!process.env.CLAUDE_API_KEY,
+        keyLength: process.env.CLAUDE_API_KEY?.length,
+        model: process.env.MODEL_NAME || "not-set"
+      }
+    });
     return NextResponse.json(
       { message: "Problema técnico momentâneo. Tente novamente." },
       { status: 500 }

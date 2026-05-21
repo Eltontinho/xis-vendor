@@ -1,4 +1,4 @@
-export const MODEL_NAME = "claude-sonnet-4-6";
+export const MODEL_NAME = "claude-3-5-sonnet-20241022";
 
 export const CLAUDE_CONFIG = {
   max_tokens: 1024,
