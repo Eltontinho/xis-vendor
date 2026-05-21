@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
     });
 
     console.log("[/api/elton] Env check:", {
-      hasClaudeKey: !!process.env.CLAUDE_API_KEY,
-      keyPrefix: process.env.CLAUDE_API_KEY?.slice(0, 10) + "...",
-      keyLength: process.env.CLAUDE_API_KEY?.length,
+      hasClaudeKey: !!process.env.ANTHROPIC_API_KEY,
+      keyPrefix: process.env.ANTHROPIC_API_KEY?.slice(0, 10) + "...",
+      keyLength: process.env.ANTHROPIC_API_KEY?.length,
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV
     });
@@ -43,9 +43,9 @@ export async function POST(req: NextRequest) {
     console.error("Error name:", error instanceof Error ? error.name : "Unknown");
     console.error("Error message:", error instanceof Error ? error.message : String(error));
     console.error("Error stack:", error instanceof Error ? error.stack : "No stack");
-    console.error("Env CLAUDE_API_KEY exists:", !!process.env.CLAUDE_API_KEY);
-    console.error("Env key length:", process.env.CLAUDE_API_KEY?.length);
-    console.error("Env key prefix:", process.env.CLAUDE_API_KEY?.slice(0, 10) + "...");
+    console.error("Env ANTHROPIC_API_KEY exists:", !!process.env.ANTHROPIC_API_KEY);
+    console.error("Env key length:", process.env.ANTHROPIC_API_KEY?.length);
+    console.error("Env key prefix:", process.env.ANTHROPIC_API_KEY?.slice(0, 10) + "...");
     console.error("Node env:", process.env.NODE_ENV);
     console.error("Vercel env:", process.env.VERCEL_ENV);
     console.error("=== END DEBUG ===");
