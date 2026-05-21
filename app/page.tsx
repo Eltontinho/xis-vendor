@@ -24,7 +24,7 @@ const PLAN_META = {
 type PlanKey = keyof typeof PLAN_META;
 
 type FormData = { nome: string; telefone: string; email: string; placa: string; cidade: string };
-type DataCollection = { step: number; formData: Partial<FormData> } | null;
+type DataCollection = { step: number; formData: Partial<FormData>; active: boolean; userName?: string; userCity?: string } | null;
 
 const COLETA_PERGUNTAS = [
   "Qual é o seu nome completo?",
@@ -287,7 +287,7 @@ export default function EltonChat() {
     setShowCollectionButton(false);
     const initialData: Partial<FormData> = {};
     if (cityFromEarlierRef.current) initialData.cidade = cityFromEarlierRef.current;
-    setDataCollection({ step: 0, formData: initialData });
+    setDataCollection({ step: 0, formData: initialData, active: true });
     scheduleTimer(() => {
       typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
     }, 400);
@@ -373,10 +373,19 @@ export default function EltonChat() {
     }
 
     // ─── Coleta de dados inline ───────────────────────────────────────────
-    if (dataCollection !== null) {
+    if (dataCollection !== null && dataCollection.active) {
       const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
       setMessages(prev => [...prev, userMsg]);
       setInput("");
+
+      // Lógica de rejeição
+      const isRejection = /\b(não quero|nao quero|não vou pagar|nao vou pagar)\b/i.test(text.trim());
+      if (isRejection) {
+        setDataCollection(prev => prev ? { ...prev, active: false } : null);
+        setShowCollectionButton(false);
+        typeMessage(generateId(), "Tudo bem! Se mudar de ideia, é só me chamar. Estarei aqui.", Date.now());
+        return;
+      }
 
       const { step, formData } = dataCollection;
       const newData = { ...formData };
@@ -392,7 +401,7 @@ export default function EltonChat() {
         }
         if (nao) {
           dataStartedRef.current = false;
-          setDataCollection({ step: 0, formData: {} });
+          setDataCollection({ step: 0, formData: {}, active: true });
           dataStartedRef.current = true;
           typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
           return;
@@ -409,26 +418,33 @@ export default function EltonChat() {
       else if (step === 4) newData.cidade = text.trim();
 
       const nextStep = step + 1;
+      const userName = newData.nome;
+      const userCity = newData.cidade;
 
       // Pula pergunta de cidade se já foi capturada na qualificação
       const temCidade = !!(newData.cidade);
       if (nextStep === 4 && temCidade) {
         const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
-        setDataCollection({ step: 5, formData: newData });
+        setDataCollection({ step: 5, formData: newData, active: true, userName, userCity });
         typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
         return;
       }
 
       if (nextStep === 5) {
         const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
-        setDataCollection({ step: 5, formData: newData });
+        setDataCollection({ step: 5, formData: newData, active: true, userName, userCity });
         typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
         return;
       }
 
-      setDataCollection({ step: nextStep, formData: newData });
+      setDataCollection({ step: nextStep, formData: newData, active: true, userName, userCity });
       typeMessage(generateId(), COLETA_PERGUNTAS[nextStep], Date.now());
       return;
+    }
+
+    // Limpa coleta inativa (após rejeição) antes de seguir para AI
+    if (dataCollection !== null && !dataCollection.active) {
+      setDataCollection(null);
     }
 
     const lowerText = text.trim().toLowerCase();
@@ -509,8 +525,8 @@ export default function EltonChat() {
           scheduleTimer(() => { addImageCard("/cards/cardk-rrobranco.png"); }, 2000);
         }
 
-        // Clube card — dispara quando Elton menciona "Clube K-RRO"
-        if (data.message.includes("Clube K-RRO") && !clubeCardSent.current) {
+        // Clube card — dispara quando Elton usa a frase exata
+        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardSent.current) {
           clubeCardSent.current = true;
           scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
         }
