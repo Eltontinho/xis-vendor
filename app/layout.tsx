@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Analytics from "@/components/Analytics";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "K-RRO — Axis Vendor",
@@ -17,7 +18,10 @@ export default function RootLayout({
       <head>
         <Analytics />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <VercelAnalytics />
+      </body>
     </html>
   );
 }
