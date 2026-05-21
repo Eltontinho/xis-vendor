@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { eltonAgent } from "@/lib/elton/agent";
+import { callEltonAgent, ClaudeMessage } from "@/lib/elton/agent";
+import { getLead, upsertLead, Lead } from "@/lib/elton/db";
+import { LeadStage } from "@/lib/elton/state";
 import { sendMessage, sendPlanButtons } from "@/lib/whatsapp/client";
 
 const OFENSIVO = [
@@ -15,6 +17,7 @@ const BUTTON_TEXT: Record<string, string> = {
 };
 
 const TOTAL_LOTE1 = 200;
+const MAX_HISTORY_TURNS = 8;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +30,37 @@ async function getVagas(): Promise<number> {
     .select("*", { count: "exact", head: true })
     .eq("stage", "convertido");
   return Math.max(TOTAL_LOTE1 - (count ?? 0), 0);
+}
+
+async function runAgent(text: string, phone: string, vagas: number, channel: "web" | "whatsapp"): Promise<string> {
+  const stored = await getLead(phone);
+  let storedHistory: ClaudeMessage[] = [];
+  if (stored) {
+    try {
+      const raw = typeof stored.history === "string"
+        ? JSON.parse(stored.history as unknown as string)
+        : stored.history;
+      if (Array.isArray(raw)) storedHistory = raw as ClaudeMessage[];
+    } catch { /* histórico corrompido */ }
+  }
+
+  const recentHistory = storedHistory.slice(-MAX_HISTORY_TURNS * 2);
+  const replyText = await callEltonAgent({
+    conversationId: phone,
+    vagasLote1: vagas,
+    history: [...recentHistory, { role: "user", content: text }],
+  });
+
+  const updatedLead: Lead = {
+    phone,
+    stage: stored?.stage ?? LeadStage.NOVO,
+    history: [...recentHistory, { role: "user", content: text }, { role: "assistant", content: replyText }],
+    channel,
+    updatedAt: new Date().toISOString(),
+  };
+  await upsertLead(updatedLead);
+
+  return replyText;
 }
 
 // GET: Z-API não faz verificação de token — responde 200 direto
@@ -50,7 +84,6 @@ export async function POST(req: NextRequest) {
     buttonResponse?: { selectedButtonId?: string };
   };
 
-  // Ignora mensagens enviadas por nós mesmos
   if (payload.fromMe) return Response.json({ received: true });
 
   const phone = payload.phone?.replace(/\D/g, "") ?? "";
@@ -64,9 +97,9 @@ export async function POST(req: NextRequest) {
 
     console.log(`[WA] button: ${buttonId} → "${text}" de ${phone}`);
     try {
-      const vagas  = await getVagas();
-      const result = await eltonAgent(text, phone, vagas, "whatsapp");
-      await sendMessage(phone, result.message);
+      const vagas = await getVagas();
+      const reply = await runAgent(text, phone, vagas, "whatsapp");
+      await sendMessage(phone, reply);
     } catch (err) {
       console.error("[WA] button error:", err);
     }
@@ -79,32 +112,25 @@ export async function POST(req: NextRequest) {
 
   console.log(`[WA] msg: "${text.slice(0, 60)}" de ${phone}`);
 
-  // Filtro ofensivo
   if (OFENSIVO.some((p) => text.toLowerCase().includes(p))) {
-    await sendMessage(
-      phone,
-      "A K-RRO não compactua com esse tipo de comentário. Encerrando o atendimento."
-    );
+    await sendMessage(phone, "A K-RRO não compactua com esse tipo de comentário. Encerrando o atendimento.");
     return Response.json({ received: true });
   }
 
   try {
-    const vagas  = await getVagas();
-    const result = await eltonAgent(text, phone, vagas, "whatsapp");
+    const vagas = await getVagas();
+    const reply = await runAgent(text, phone, vagas, "whatsapp");
 
-    if (result.message.includes("{{CLUBE_KRRO}}")) {
-      const before = result.message.replace("{{CLUBE_KRRO}}", "").trim();
+    if (reply.includes("{{CLUBE_KRRO}}")) {
+      const before = reply.replace("{{CLUBE_KRRO}}", "").trim();
       if (before) await sendMessage(phone, before);
       await sendPlanButtons(phone);
     } else {
-      await sendMessage(phone, result.message);
+      await sendMessage(phone, reply);
     }
   } catch (err) {
     console.error("[WA] agent error:", err);
-    await sendMessage(
-      phone,
-      "Sistema temporariamente indisponível. Tente novamente em instantes."
-    );
+    await sendMessage(phone, "Sistema temporariamente indisponível. Tente novamente em instantes.");
   }
 
   return Response.json({ received: true });

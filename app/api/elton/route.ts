@@ -1,4 +1,8 @@
-import { eltonAgent } from "@/lib/elton/agent";
+import { callEltonAgent, ClaudeMessage } from "@/lib/elton/agent";
+import { getLead, upsertLead, Lead } from "@/lib/elton/db";
+import { LeadStage } from "@/lib/elton/state";
+
+const MAX_HISTORY_TURNS = 8;
 
 export async function POST(req: Request) {
   try {
@@ -21,27 +25,46 @@ export async function POST(req: Request) {
       return Response.json({
         agent: 'ELTON',
         message: 'A K-RRO não compactua com esse tipo de comentário. Encerrando o atendimento.',
-        stage: 'encerrado',
         blocked: true,
       });
     }
 
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
-      ?? req.headers.get("x-real-ip")
-      ?? phone;
+    console.log(`[ELTON] request — phone: ${phone}`);
 
-    const LOCAL_TEST_IPS = ["::1", "127.0.0.1", "192.168.2.171"];
-    const sessionKey = phone;
+    // Carrega histórico persistente
+    const stored = await getLead(phone);
+    let storedHistory: ClaudeMessage[] = [];
+    if (stored) {
+      try {
+        const raw = typeof stored.history === "string"
+          ? JSON.parse(stored.history as unknown as string)
+          : stored.history;
+        if (Array.isArray(raw)) storedHistory = raw as ClaudeMessage[];
+      } catch { /* histórico corrompido — começa do zero */ }
+    }
 
-    console.log(`[ELTON] request — phone: ${phone} ip: ${ip} sessionKey: ${sessionKey}`);
+    const recentHistory = storedHistory.slice(-MAX_HISTORY_TURNS * 2);
 
-    const result = await eltonAgent(message, sessionKey, vagas);
+    // Chama Claude Sonnet 4.6
+    const replyText = await callEltonAgent({
+      conversationId: phone,
+      vagasLote1: vagas,
+      history: [...recentHistory, { role: "user", content: message }],
+    });
+
+    // Persiste histórico atualizado
+    const updatedLead: Lead = {
+      phone,
+      stage: stored?.stage ?? LeadStage.NOVO,
+      history: [...recentHistory, { role: "user", content: message }, { role: "assistant", content: replyText }],
+      channel: stored?.channel ?? "web",
+      updatedAt: new Date().toISOString(),
+    };
+    await upsertLead(updatedLead);
 
     return Response.json({
       agent:   "ELTON",
-      message: result.message,
-      stage:   result.stage,
-      image:   result.image,
+      message: replyText,
     });
   } catch (err) {
     console.error("[ELTON] route error:", err);
