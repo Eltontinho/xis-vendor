@@ -3,9 +3,6 @@ export const MODEL_NAME = "claude-sonnet-4-5";
 export const CLAUDE_CONFIG = {
   max_tokens: 1024,
   temperature: 0.3,
-  top_p: 0.9,
-  top_k: 40,
-  stop_sequences: [],
 };
 
 export const RETRY_CONFIG = {
@@ -41,8 +38,6 @@ export async function callEltonAgent(options: AgentOptions): Promise<string> {
     model: MODEL_NAME,
     max_tokens: CLAUDE_CONFIG.max_tokens,
     temperature: CLAUDE_CONFIG.temperature,
-    top_p: CLAUDE_CONFIG.top_p,
-    top_k: CLAUDE_CONFIG.top_k,
     system: systemPrompt,
     messages,
   };
