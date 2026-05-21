@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fallback hierárquico por cidade, depois qualquer cidade, depois cascata de lote
+    console.log("[RESERVE] buscando lote:", lot);
     const cascade = LOT_CASCADE[lot] ?? [lot];
 
     let selectedLot: LotName = lot;
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
         .select("city, lot, total, reserved, sold")
         .eq("lot", tryLot);
 
+      console.log("[RESERVE] resultado:", JSON.stringify(anyCity));
       const found = (anyCity ?? []).find(r => r.total - r.reserved - r.sold > 0);
       if (found) {
         avail = found;
@@ -281,7 +283,7 @@ export async function POST(req: NextRequest) {
       } : {}),
     });
   } catch (err) {
-    console.error("[/api/reserve]", err);
+    console.error("[RESERVE ERROR]", JSON.stringify(err, Object.getOwnPropertyNames(err)));
     return NextResponse.json<ReserveResponse>(
       { success: false, error: "Erro interno do servidor" },
       { status: 500 }

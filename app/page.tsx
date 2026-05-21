@@ -14,7 +14,7 @@ type Message = {
 
 type FlowStep =
   | "nome" | "card" | "pergunta" | "cidade" | "carro" | "ano"
-  | "corridas" | "ticket" | "conta" | "clube" | "plano" | "form";
+  | "corridas" | "ticket" | "conta" | "clube" | "plano";
 
 const PLAN_META = {
   platina: { label: "Platina", valor: "R$397/ano", lot: "lote3" },
@@ -22,33 +22,6 @@ const PLAN_META = {
   prata:   { label: "Prata",   valor: "R$297/ano", lot: "lote1" },
 } as const;
 type PlanKey = keyof typeof PLAN_META;
-
-type FormData = { nome: string; telefone: string; email: string; placa: string; cidade: string };
-type DataCollection = { step: number; formData: Partial<FormData>; active: boolean; userName?: string; userCity?: string } | null;
-
-const COLETA_PERGUNTAS = [
-  "Qual é o seu nome completo?",
-  "Qual é o seu WhatsApp com DDD? (Ex: 51 99999-8888)",
-  "Qual é o seu e-mail?",
-  "Qual é a placa do seu veículo? (Ex: ABC1D23)",
-  "Em qual cidade você trabalha?",
-];
-
-function checkFormTrigger(message: string): boolean {
-  const lower = message.toLowerCase();
-  const hasPlan = message.includes("Platina") || message.includes("Ouro") || message.includes("Prata");
-  if (!hasPlan) return false;
-  return (
-    lower.includes("formulário") ||
-    lower.includes("preencher") ||
-    lower.includes("cadastro") ||
-    lower.includes("link") ||
-    lower.includes("dados") ||
-    lower.includes("membro") ||
-    lower.includes("para garantir") ||
-    lower.includes("garantir sua vaga")
-  );
-}
 
 const formatTime = (ts: number) => {
   const d = new Date(ts);
@@ -103,8 +76,6 @@ export default function EltonChat() {
     checkout_url: string; lotUsado: string;
     planoFallback: typeof PLAN_META[PlanKey]; mensagem: string;
   } | null>(null);
-  const [dataCollection, setDataCollection] = useState<DataCollection>(null);
-  const [showCollectionButton, setShowCollectionButton] = useState(false);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -119,15 +90,12 @@ export default function EltonChat() {
   const pendingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const apiCallCountRef = useRef(0);
   const cardKRROSentRef = useRef(false);
-  const clubeCardSent = useRef(false);
+  const clubeCardEnviadoRef = useRef(false);
   const planCardSent = useRef(false);
   const flowStepRef = useRef<FlowStep>("nome");
   const corridasRef = useRef<number | null>(null);
   const ticketRef = useRef<number | null>(null);
   const esgotadoShownRef = useRef(false);
-  const userConfirmedPlanRef = useRef(false);
-  const dataStartedRef = useRef(false);
-  const cityFromEarlierRef = useRef<string | null>(null);
 
   useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
 
@@ -226,7 +194,7 @@ export default function EltonChat() {
   }
 
   // ─── Reserve API ─────────────────────────────────────────────────────────
-  async function doReserve(dados: FormData) {
+  async function doReserve(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
     setLoading(true);
     try {
       const res = await fetch("/api/reserve", {
@@ -244,7 +212,6 @@ export default function EltonChat() {
       console.log("[RESERVE]", data);
 
       if (data.success === true && data.checkout_url) {
-        setShowCollectionButton(false);
         if (data.lotUsado && data.lotUsado !== selectedPlan.lot) {
           const fb: typeof PLAN_META[PlanKey] =
             data.lotUsado === "lote3" ? PLAN_META.platina
@@ -276,23 +243,6 @@ export default function EltonChat() {
     }
   }
 
-  // ─── Inicia coleta de dados via chat ─────────────────────────────────────
-  function startDataCollection(plan: typeof PLAN_META[PlanKey]) {
-    if (dataStartedRef.current) return;
-    dataStartedRef.current = true;
-    userConfirmedPlanRef.current = true;
-    setSelectedPlan(plan);
-    fetchNextNumber(plan.lot);
-    setFlowStep("form");
-    setShowCollectionButton(false);
-    const initialData: Partial<FormData> = {};
-    if (cityFromEarlierRef.current) initialData.cidade = cityFromEarlierRef.current;
-    setDataCollection({ step: 0, formData: initialData, active: true });
-    scheduleTimer(() => {
-      typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
-    }, 400);
-  }
-
   // ─── Conta automática ────────────────────────────────────────────────────
   function computeContaMsgs(): [string, string, string] {
     const corridas = corridasRef.current ?? 20;
@@ -314,8 +264,8 @@ export default function EltonChat() {
     await new Promise<void>(r => scheduleTimer(() => r(), 1400));
     await typeMessage(generateId(), m3, Date.now());
     await new Promise<void>(r => scheduleTimer(() => r(), 900));
-    if (!clubeCardSent.current) {
-      clubeCardSent.current = true;
+    if (!clubeCardEnviadoRef.current) {
+      clubeCardEnviadoRef.current = true;
       addImageCard("/cards/clube-todos.png");
     }
     setFlowStep("clube");
@@ -331,17 +281,12 @@ export default function EltonChat() {
       clearAllTimers();
       localStorage.clear();
       localStorage.setItem("elton_reset", "true");
-      clubeCardSent.current = false;
+      clubeCardEnviadoRef.current = false;
       planCardSent.current = false;
       cardKRROSentRef.current = false;
       corridasRef.current = null;
       ticketRef.current = null;
       esgotadoShownRef.current = false;
-      userConfirmedPlanRef.current = false;
-      dataStartedRef.current = false;
-      cityFromEarlierRef.current = null;
-      setDataCollection(null);
-      setShowCollectionButton(false);
       setMessages([]);
       setModalSrc(null);
       setPendingFallback(null);
@@ -372,81 +317,6 @@ export default function EltonChat() {
       return;
     }
 
-    // ─── Coleta de dados inline ───────────────────────────────────────────
-    if (dataCollection !== null && dataCollection.active) {
-      const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
-      setMessages(prev => [...prev, userMsg]);
-      setInput("");
-
-      // Lógica de rejeição
-      const isRejection = /\b(não quero|nao quero|não vou pagar|nao vou pagar)\b/i.test(text.trim());
-      if (isRejection) {
-        setDataCollection(prev => prev ? { ...prev, active: false } : null);
-        setShowCollectionButton(false);
-        typeMessage(generateId(), "Tudo bem! Se mudar de ideia, é só me chamar. Estarei aqui.", Date.now());
-        return;
-      }
-
-      const { step, formData } = dataCollection;
-      const newData = { ...formData };
-
-      // Confirmação final (step 5)
-      if (step === 5) {
-        const sim = /\b(sim|s\b|pode|correto|certo|ok\b|claro|confirmo|tá|ta\b|tudo certo)\b/i.test(text.trim());
-        const nao = /\b(não|nao|n\b|cancela|errado|incorreto|corrigir|recomeçar|muda)\b/i.test(text.trim());
-        if (sim) {
-          setDataCollection(null);
-          await doReserve(newData as FormData);
-          return;
-        }
-        if (nao) {
-          dataStartedRef.current = false;
-          setDataCollection({ step: 0, formData: {}, active: true });
-          dataStartedRef.current = true;
-          typeMessage(generateId(), COLETA_PERGUNTAS[0], Date.now());
-          return;
-        }
-        typeMessage(generateId(), "Digite 'sim' para confirmar os dados ou 'não' para recomeçar.", Date.now());
-        return;
-      }
-
-      // Armazena resposta no campo correto
-      if (step === 0) newData.nome = text.trim();
-      else if (step === 1) newData.telefone = text.trim();
-      else if (step === 2) newData.email = text.trim();
-      else if (step === 3) newData.placa = text.trim().toUpperCase().replace(/\s/g, "");
-      else if (step === 4) newData.cidade = text.trim();
-
-      const nextStep = step + 1;
-      const userName = newData.nome;
-      const userCity = newData.cidade;
-
-      // Pula pergunta de cidade se já foi capturada na qualificação
-      const temCidade = !!(newData.cidade);
-      if (nextStep === 4 && temCidade) {
-        const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
-        setDataCollection({ step: 5, formData: newData, active: true, userName, userCity });
-        typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
-        return;
-      }
-
-      if (nextStep === 5) {
-        const resumo = `Nome: ${newData.nome}\nWhatsApp: ${newData.telefone}\nEmail: ${newData.email}\nPlaca: ${newData.placa}\nCidade: ${newData.cidade}`;
-        setDataCollection({ step: 5, formData: newData, active: true, userName, userCity });
-        typeMessage(generateId(), `Perfeito! Confira seus dados:\n\n${resumo}\n\nTudo certo? Responda "sim" para confirmar ou "não" para recomeçar.`, Date.now());
-        return;
-      }
-
-      setDataCollection({ step: nextStep, formData: newData, active: true, userName, userCity });
-      typeMessage(generateId(), COLETA_PERGUNTAS[nextStep], Date.now());
-      return;
-    }
-
-    // Limpa coleta inativa (após rejeição) antes de seguir para AI
-    if (dataCollection !== null && !dataCollection.active) {
-      setDataCollection(null);
-    }
-
     const lowerText = text.trim().toLowerCase();
 
     // Reenvio de card por solicitação
@@ -455,27 +325,12 @@ export default function EltonChat() {
         const img = selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
           : selectedPlan.label === "Ouro" ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
         addImageCard(img);
-      } else if (clubeCardSent.current) {
+      } else if (clubeCardEnviadoRef.current) {
         addImageCard("/cards/clube-todos.png");
       }
     }
 
-    // Gatilho manual do usuário para iniciar cadastro
-    const userTriggers = [
-      "quero garantir", "garantir minha vaga", "quero me cadastrar",
-      "quero o platina", "quero o ouro", "quero o prata", "fechar o plano",
-    ];
-    if (userTriggers.some(t => lowerText.includes(t)) && !dataStartedRef.current) {
-      const userPlanKey = (["platina", "ouro", "prata"] as const).find(p => lowerText.includes(p));
-      const plan = userPlanKey ? PLAN_META[userPlanKey] : selectedPlan;
-      const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
-      setMessages(prev => [...prev, userMsg]);
-      setInput("");
-      startDataCollection(plan);
-      return;
-    }
-
-    // Extração de números para conta + cidade para pré-preencher coleta
+    // Extração de números para conta
     const currentStep = flowStepRef.current;
     if (currentStep === "corridas") {
       const n = extractNumber(text);
@@ -483,8 +338,6 @@ export default function EltonChat() {
     } else if (currentStep === "ticket") {
       const n = extractNumber(text);
       if (n && n > 0) ticketRef.current = n;
-    } else if (currentStep === "cidade") {
-      cityFromEarlierRef.current = text.trim();
     }
 
     const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
@@ -529,40 +382,17 @@ export default function EltonChat() {
 
         await typeMessage(generateId(), data.message, Date.now());
 
-        const msgLower = data.message.toLowerCase();
-
-        // Card 2 após nome
+        // Card após nome (primeira chamada)
         if (apiCallCountRef.current === 1 && !cardKRROSentRef.current) {
           cardKRROSentRef.current = true;
           setFlowStep("card");
           scheduleTimer(() => { addImageCard("/cards/cardk-rrobranco.png"); }, 2000);
         }
 
-        // Clube card — dispara quando Elton usa a frase exata
-        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardSent.current) {
-          clubeCardSent.current = true;
+        // Clube card — dispara quando Elton usa a frase exata, uma vez por sessão
+        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardEnviadoRef.current) {
+          clubeCardEnviadoRef.current = true;
           scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
-        }
-
-        // Plan card — suporta "R$397" e "R$ 397"
-        const isPlatina = data.message.includes("Platina") && (data.message.includes("R$397") || data.message.includes("R$ 397"));
-        const isOuro    = data.message.includes("Ouro")    && (data.message.includes("R$347") || data.message.includes("R$ 347"));
-        const isPrata   = data.message.includes("Prata")   && (data.message.includes("R$297") || data.message.includes("R$ 297"));
-        if ((isPlatina || isOuro || isPrata) && !planCardSent.current) {
-          planCardSent.current = true;
-          const planImg = isPlatina ? "/cards/clube-platina.jpg" : isOuro ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
-          if (isPlatina) setSelectedPlan(PLAN_META.platina);
-          else if (isOuro) setSelectedPlan(PLAN_META.ouro);
-          else setSelectedPlan(PLAN_META.prata);
-          scheduleTimer(() => addImageCard(planImg), 600);
-        }
-
-        // Inicia coleta de dados via chat (substitui modal)
-        if (checkFormTrigger(data.message) && !dataStartedRef.current) {
-          const aiPlanKey = (["platina", "ouro", "prata"] as const).find(p => msgLower.includes(p));
-          const plan = aiPlanKey ? PLAN_META[aiPlanKey] : selectedPlan;
-          setShowCollectionButton(true);
-          scheduleTimer(() => startDataCollection(plan), 800);
         }
 
         // Step transitions
@@ -719,16 +549,6 @@ export default function EltonChat() {
           </div>
         </div>
 
-        {/* Botão de emergência — abre coleta se trigger detectado mas não iniciou */}
-        {showCollectionButton && dataCollection === null && (
-          <div style={{ padding:"6px 12px",flexShrink:0,backgroundColor:"#000" }}>
-            <button onClick={() => startDataCollection(selectedPlan)}
-              style={{ width:"100%",backgroundColor:"#0066ff",color:"#fff",border:"none",borderRadius:8,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:0.3 }}>
-              📋 Abrir Cadastro
-            </button>
-          </div>
-        )}
-
         {/* Input */}
         <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
           style={{ backgroundColor:"#000000",borderTop:"1px solid #0066ff" }}>
@@ -738,7 +558,7 @@ export default function EltonChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); } }}
-            placeholder={dataCollection !== null ? "Digite sua resposta..." : "Digite uma mensagem"}
+            placeholder="Digite uma mensagem"
             disabled={loading || typingMessageId !== null || showEntrada}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{ backgroundColor:"#0d1117",border:"1px solid #222",color:"#ffffff",fontSize:16 }}
