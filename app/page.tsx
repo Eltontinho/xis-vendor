@@ -495,10 +495,23 @@ export default function EltonChat() {
     const prevStep = flowStepRef.current;
 
     try {
+      const history = messages
+        .filter(m => m.text && !m.image && !m.audioUrl)
+        .slice(-16)
+        .map(m => ({
+          role: m.role === "elton" ? "assistant" as const : "user" as const,
+          content: m.text!,
+        }));
+
       const res = await fetch("/api/elton", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), phone: sessionId, vagas }),
+        body: JSON.stringify({
+          message: text.trim(),
+          conversationId: sessionId,
+          vagasLote1: vagas,
+          history,
+        }),
       });
       const data = await res.json();
 

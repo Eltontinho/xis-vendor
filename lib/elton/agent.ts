@@ -1,30 +1,19 @@
-/**
- * ELTON AGENT — Integração com Claude API (Anthropic)
- * Modelo ativo: Claude Sonnet 4.6 (família Claude 4)
- */
-
-import { getEltonSystemPrompt } from './system';
-
-// IDENTIFICADOR DO MODELO (conforme sua especificação)
 export const MODEL_NAME = "claude-sonnet-4-6";
 
-// PARÂMETROS OTIMIZADOS PARA SONNET 4.6
 export const CLAUDE_CONFIG = {
   max_tokens: 1024,
-  temperature: 0.3,        // Consistência máxima para regras rígidas e memória contextual
+  temperature: 0.3,
   top_p: 0.9,
   top_k: 40,
   stop_sequences: [],
 };
 
-// CONFIGURAÇÃO DE RETRY (tolerância a picos de latência)
 export const RETRY_CONFIG = {
   maxAttempts: 3,
   initialDelay: 1000,
   maxDelay: 5000,
 };
 
-// TIPOS
 export interface ClaudeMessage {
   role: "user" | "assistant";
   content: string;
@@ -36,11 +25,11 @@ export interface AgentOptions {
   history: ClaudeMessage[];
 }
 
-/**
- * Chamada principal ao Sonnet 4.6
- */
 export async function callEltonAgent(options: AgentOptions): Promise<string> {
   const { history, vagasLote1 } = options;
+
+  // Import dinâmico para evitar circular dependency
+  const { getEltonSystemPrompt } = await import('./system');
   const systemPrompt = getEltonSystemPrompt(vagasLote1);
 
   const messages = history.map(msg => ({
@@ -61,9 +50,6 @@ export async function callEltonAgent(options: AgentOptions): Promise<string> {
   return executeWithRetry(payload);
 }
 
-/**
- * Retry exponencial + tratamento de resposta
- */
 async function executeWithRetry(payload: any, attempt = 1): Promise<string> {
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -77,7 +63,7 @@ async function executeWithRetry(payload: any, attempt = 1): Promise<string> {
     });
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => "Sem corpo de erro");
+      const errorBody = await response.text().catch(() => "Sem corpo");
       const retryableStatus = [429, 500, 502, 503, 504];
 
       if (retryableStatus.includes(response.status) && attempt < RETRY_CONFIG.maxAttempts) {
@@ -103,8 +89,19 @@ async function executeWithRetry(payload: any, attempt = 1): Promise<string> {
   } catch (error) {
     if (attempt >= RETRY_CONFIG.maxAttempts) {
       console.error(`[Elton] Falha após ${RETRY_CONFIG.maxAttempts} tentativas:`, error);
-      throw new Error("Não foi possível processar sua solicitação. Tente novamente em instantes.");
+      throw new Error("Não foi possível processar. Tente novamente.");
     }
     throw error;
   }
+}
+
+export function formatHistoryForClaude(
+  frontendHistory: Array<{ role: string; content: string }>
+): ClaudeMessage[] {
+  return frontendHistory
+    .filter(msg => msg.role === "user" || msg.role === "assistant")
+    .map(msg => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+    }));
 }
