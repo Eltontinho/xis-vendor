@@ -75,29 +75,27 @@ export async function POST(req: NextRequest) {
     const systemPrompt = getEltonSystemPrompt(vagasLote1 || 199);
     const formattedHistory = formatHistory(history || []);
 
-    let lastUserMessage: ClaudeMessage;
+    // Constrói conteúdo da mensagem do usuário (texto + imagem opcional)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userContent: any[] = [];
 
-    if (image?.data && image?.mimeType) {
-      // Visão computacional: monta mensagem com bloco de imagem + texto
-      lastUserMessage = {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: image.mimeType,
-              data: image.data,
-            },
-          },
-          { type: "text", text: message },
-        ],
-      };
-    } else {
-      lastUserMessage = { role: "user", content: message };
+    if (image?.data) {
+      userContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mimeType || "image/jpeg",
+          data: image.data,
+        },
+      });
     }
 
-    const messages: ClaudeMessage[] = [...formattedHistory, lastUserMessage];
+    if (message) {
+      userContent.push({ type: "text", text: message });
+    }
+
+    const newMessage = { role: "user" as const, content: userContent };
+    const messages: ClaudeMessage[] = [...formattedHistory, newMessage];
     // Visão usa mais tokens para análise detalhada
     const maxTokens = image?.data ? 2048 : MAX_TOKENS;
     const response = await callClaude(messages, systemPrompt, maxTokens);
