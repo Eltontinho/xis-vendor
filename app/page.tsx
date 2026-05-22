@@ -597,7 +597,7 @@ export default function EltonChat() {
         <div className="flex-1 relative overflow-hidden" style={{ backgroundColor:"#0a0a0f" }}>
           <img src="/logo-krro.png" alt="" aria-hidden="true"
             style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"70%",maxWidth:300,opacity:0.04,filter:"brightness(0) invert(1)",pointerEvents:"none",zIndex:0,userSelect:"none" }} />
-          <div className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-2" style={{ zIndex:1 }}>
+          <div className="absolute inset-0 overflow-y-auto px-3 py-4 pb-28 space-y-2" style={{ zIndex:1 }}>
             {messages.map((msg) => {
               const isElton = msg.role === "elton";
               if (isElton && msg.text !== undefined && !msg.image && !msg.audioUrl) {
@@ -661,8 +661,7 @@ export default function EltonChat() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
-          style={{ backgroundColor:"#000000",borderTop:"1px solid #0066ff" }}>
+        <div className="fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 p-3 pb-6">
           <input
             type="file"
             ref={fileInputRef}
@@ -670,71 +669,76 @@ export default function EltonChat() {
             accept="image/*"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ""; }}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading || typingMessageId !== null || showEntrada}
-            aria-label="Enviar imagem"
-            className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
-            style={{ backgroundColor:"#0d1117",border:"1px solid #222",fontSize:16 }}
-            title="Enviar relatório de ganhos">
-            📷
-          </button>
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); } }}
-            placeholder="Digite uma mensagem"
-            disabled={loading || typingMessageId !== null || showEntrada}
-            className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
-            style={{ backgroundColor:"#0d1117",border:"1px solid #222",color:"#ffffff",fontSize:16 }}
-            id="chat-input"
-          />
-          {input.trim() ? (
-            <button onClick={() => sendText(input)} disabled={loading || typingMessageId !== null}
-              aria-label="Enviar mensagem"
-              className="page-send w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
-              style={{ backgroundColor:"#0066ff" }}>
-              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-              </svg>
+          <div className="flex items-center gap-3">
+            {/* Câmera */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || typingMessageId !== null || showEntrada}
+              aria-label="Enviar imagem"
+              title="Enviar relatório de ganhos"
+              className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white flex-shrink-0 disabled:opacity-40 transition-opacity">
+              📷
             </button>
-          ) : (
-            <div className="relative flex-shrink-0">
+
+            {/* Input */}
+            <input
+              ref={inputRef}
+              id="chat-input"
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); } }}
+              placeholder="Digite..."
+              disabled={loading || typingMessageId !== null || showEntrada}
+              className="page-input flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none text-base disabled:opacity-40 transition-opacity"
+            />
+
+            {/* Mic / Enviar */}
+            {input.trim() ? (
               <button
-                onClick={() => isRecording ? stopRecording() : startRecording()}
-                disabled={isProcessing}
-                aria-label={isRecording ? "Parar gravação" : "Iniciar gravação"}
-                className={`relative flex items-center justify-center rounded-full transition-all duration-300 ease-out
-                  ${isProcessing ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  ${isRecording ? "w-12 h-12 shadow-lg" : "w-12 h-12"}`}
-                style={{ backgroundColor: isRecording ? "#ef4444" : "#0066ff",
-                  boxShadow: isRecording ? "0 0 0 0 rgba(239,68,68,0.5)" : undefined }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-white transition-transform duration-300 ${isRecording ? "scale-110" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                onClick={() => sendText(input)}
+                disabled={loading || typingMessageId !== null}
+                aria-label="Enviar mensagem"
+                className="page-send w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity">
+                <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
-                {isRecording && (
-                  <>
-                    <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-30" />
-                    <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
-                  </>
-                )}
               </button>
-              {isProcessing && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap animate-pulse">
-                  Processando...
-                </div>
-              )}
-              {isRecording && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                  Gravando
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => isRecording ? stopRecording() : startRecording()}
+                  disabled={isProcessing}
+                  aria-label={isRecording ? "Parar gravação" : "Iniciar gravação"}
+                  className={`relative w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300
+                    ${isProcessing ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                    ${isRecording ? "shadow-lg" : ""}`}
+                  style={{ backgroundColor: isRecording ? "#ef4444" : "#2563eb" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-white transition-transform duration-300 ${isRecording ? "scale-110" : ""}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  {isRecording && (
+                    <>
+                      <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-30" />
+                      <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
+                    </>
+                  )}
+                </button>
+                {isProcessing && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap animate-pulse">
+                    Processando...
+                  </div>
+                )}
+                {isRecording && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    Gravando
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
