@@ -66,6 +66,7 @@ export default function EltonChat() {
   const [loading, setLoading] = useState(false);
   const [vagas, setVagas] = useState(42);
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [modalSrc, setModalSrc] = useState<string | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [showEntrada, setShowEntrada] = useState(true);
@@ -423,6 +424,7 @@ export default function EltonChat() {
         const audioUrl = URL.createObjectURL(blob);
         setMessages(prev => [...prev, { id: generateId(), role: "user", audioUrl, timestamp: Date.now() }]);
         stream.getTracks().forEach(t => t.stop());
+        setIsProcessing(false);
       };
       mr.start();
       mrRef.current = mr;
@@ -430,7 +432,7 @@ export default function EltonChat() {
     } catch { /* mic unavailable */ }
   }
 
-  function stopRecording() { mrRef.current?.stop(); mrRef.current = null; setIsRecording(false); }
+  function stopRecording() { mrRef.current?.stop(); mrRef.current = null; setIsRecording(false); setIsProcessing(true); }
 
   // ─── Image upload ─────────────────────────────────────────────────────────
   function handleImageUpload(file: File) {
@@ -642,16 +644,39 @@ export default function EltonChat() {
               </svg>
             </button>
           ) : (
-            <button onMouseDown={startRecording} onMouseUp={stopRecording}
-              onTouchStart={e => { e.preventDefault(); startRecording(); }}
-              onTouchEnd={e => { e.preventDefault(); stopRecording(); }}
-              aria-label={isRecording ? "Gravando — solte para enviar" : "Segure para gravar"}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-              style={{ backgroundColor:isRecording ? "#ef4444" : "#0066ff" }}>
-              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-              </svg>
-            </button>
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => isRecording ? stopRecording() : startRecording()}
+                disabled={isProcessing}
+                aria-label={isRecording ? "Parar gravação" : "Iniciar gravação"}
+                className={`relative flex items-center justify-center rounded-full transition-all duration-300 ease-out
+                  ${isProcessing ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                  ${isRecording ? "w-12 h-12 shadow-lg" : "w-10 h-10"}`}
+                style={{ backgroundColor: isRecording ? "#ef4444" : "#0066ff",
+                  boxShadow: isRecording ? "0 0 0 0 rgba(239,68,68,0.5)" : undefined }}>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-white transition-transform duration-300 ${isRecording ? "scale-110" : ""}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                {isRecording && (
+                  <>
+                    <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-30" />
+                    <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
+                  </>
+                )}
+              </button>
+              {isProcessing && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap animate-pulse">
+                  Processando...
+                </div>
+              )}
+              {isRecording && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                  Gravando
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
