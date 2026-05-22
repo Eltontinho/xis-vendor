@@ -84,6 +84,7 @@ export default function EltonChat() {
   // ─── Refs ────────────────────────────────────────────────────────────────
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -431,6 +432,58 @@ export default function EltonChat() {
 
   function stopRecording() { mrRef.current?.stop(); mrRef.current = null; setIsRecording(false); }
 
+  // ─── Image upload ─────────────────────────────────────────────────────────
+  function handleImageUpload(file: File) {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      const base64Data = base64String.split(",")[1];
+      const mimeType = file.type;
+
+      // Mostra preview no chat
+      setMessages(prev => [...prev, {
+        id: generateId(),
+        role: "user" as const,
+        text: "Analise este relatório de ganhos.",
+        image: base64String,
+        timestamp: Date.now(),
+      }]);
+
+      setLoading(true);
+      try {
+        const history = messages
+          .filter(m => m.text && !m.image && !m.audioUrl)
+          .slice(-16)
+          .map(m => ({
+            role: m.role === "elton" ? "assistant" as const : "user" as const,
+            content: m.text!,
+          }));
+
+        const res = await fetch("/api/elton", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "Analise este relatório de ganhos. Compare com a K-RRO.",
+            conversationId: sessionId,
+            vagasLote1: vagas,
+            history,
+            image: { data: base64Data, mimeType },
+          }),
+        });
+        const data = await res.json();
+        if (data.message) {
+          await typeMessage(generateId(), data.message, Date.now());
+        }
+      } catch {
+        typeMessage(generateId(), "Erro ao analisar a imagem. Tente novamente.", Date.now());
+      } finally {
+        setLoading(false);
+        scheduleTimer(() => inputRef.current?.focus(), 50);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -552,6 +605,22 @@ export default function EltonChat() {
         {/* Input */}
         <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
           style={{ backgroundColor:"#000000",borderTop:"1px solid #0066ff" }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ""; }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading || typingMessageId !== null || showEntrada}
+            aria-label="Enviar imagem"
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
+            style={{ backgroundColor:"#0d1117",border:"1px solid #222",fontSize:16 }}
+            title="Enviar relatório de ganhos">
+            📷
+          </button>
           <input
             ref={inputRef}
             type="text"
