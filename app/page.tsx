@@ -412,6 +412,11 @@ export default function EltonChat() {
     }
   }
 
+  // Wrapper público — usado por transcrição de áudio e outros pontos de entrada
+  async function sendMessage(text: string) {
+    await sendText(text);
+  }
+
   // ─── Recording ───────────────────────────────────────────────────────────
   async function startRecording() {
     try {
