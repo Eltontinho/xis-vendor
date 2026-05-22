@@ -1,768 +1,279 @@
 // ⚠️ NUNCA EDITE lib/elton/system.ts VIA ESTE AGENTE. Prompt gerenciado manualmente.
 "use client";
-
 import { useState, useRef, useEffect } from "react";
-import CardModal from "@/components/CardModal";
 
-type Message = {
+// --- TIPOS ---
+interface Message {
   id: string;
-  role: "user" | "elton";
-  text?: string;
-  image?: string;
-  audioUrl?: string;
+  role: "user" | "elton" | "system";
+  content: string;
   timestamp: number;
-};
-
-type FlowStep =
-  | "nome" | "card" | "pergunta" | "cidade" | "carro" | "ano"
-  | "corridas" | "ticket" | "conta" | "clube" | "plano";
-
-const PLAN_META = {
-  platina: { label: "Platina", valor: "R$397/ano", lot: "lote3" },
-  ouro:    { label: "Ouro",    valor: "R$347/ano", lot: "lote2" },
-  prata:   { label: "Prata",   valor: "R$297/ano", lot: "lote1" },
-} as const;
-type PlanKey = keyof typeof PLAN_META;
-
-const formatTime = (ts: number) => {
-  const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-};
-
-function generateId() { return Math.random().toString(36).slice(2, 9); }
-
-function getSessionId() {
-  if (typeof window === "undefined") return `ssr_${Date.now()}`;
-  const key = "elton_session";
-  let id = localStorage.getItem(key);
-  if (!id) {
-    id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(key, id);
-  }
-  return id;
+  image?: string;
 }
 
-function extractNumber(text: string): number | null {
-  const clean = text.replace(/[Rr]\$\s*/g, "").replace(",", ".");
-  const match = clean.match(/\d+(\.\d+)?/);
-  return match ? parseFloat(match[0]) : null;
-}
-
-function fmtBR(n: number): string { return Math.round(n).toLocaleString("pt-BR"); }
-
-function splitMessageForMobile(text: string): string[] {
-  const MAX_CHARS = 280;
-  const blocks: string[] = [];
-
-  const paragraphs = text.split("\n\n").filter(p => p.trim());
-
-  for (const paragraph of paragraphs) {
-    if (paragraph.length <= MAX_CHARS) {
-      blocks.push(paragraph);
-    } else {
-      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
-      let currentBlock = "";
-
-      for (const sentence of sentences) {
-        if ((currentBlock + sentence).length <= MAX_CHARS) {
-          currentBlock += sentence;
-        } else {
-          if (currentBlock) blocks.push(currentBlock.trim());
-          currentBlock = sentence;
-        }
-      }
-      if (currentBlock) blocks.push(currentBlock.trim());
-    }
-  }
-
-  return blocks.filter(b => b.trim());
-}
-
-function cardLabel(src: string): string {
-  if (src.includes("cardk-rrobranco")) return "Clube K-RRO";
-  if (src.includes("clube-platina")) return "Plano Platina";
-  if (src.includes("clube-ouro")) return "Plano Ouro";
-  if (src.includes("clube-prata")) return "Plano Prata";
-  if (src.includes("clube-todos")) return "Planos disponíveis";
-  if (src.includes("krro-apresentacao")) return "Apresentação K-RRO";
-  return "K-RRO";
-}
-
-export default function EltonChat() {
-  // ─── State ───────────────────────────────────────────────────────────────
-  const [messages, setMessages] = useState<Message[]>([]);
+// --- COMPONENTE PRINCIPAL ---
+export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      role: "elton",
+      content: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?",
+      timestamp: Date.now(),
+    },
+  ]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [vagas, setVagas] = useState(42);
+  const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [modalSrc, setModalSrc] = useState<string | null>(null);
-  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
-  const [showEntrada, setShowEntrada] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState<typeof PLAN_META[PlanKey]>(PLAN_META.platina);
-  const [membroNumero, setMembroNumero] = useState<string | null>(null);
-  const [flowStep, setFlowStep] = useState<FlowStep>("nome");
-  const [pendingFallback, setPendingFallback] = useState<{
-    checkout_url: string; lotUsado: string;
-    planoFallback: typeof PLAN_META[PlanKey]; mensagem: string;
-  } | null>(null);
-  const [toast, setToast] = useState<{ message: string; id: string } | null>(null);
-
-  const [sessionId] = useState<string>(() =>
-    typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
-  );
-
-  // ─── Refs ────────────────────────────────────────────────────────────────
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [cardModal, setCardModal] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const mrRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pendingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const apiCallCountRef = useRef(0);
-  const cardKRROSentRef = useRef(false);
-  const clubeCardEnviadoRef = useRef(false);
-  const planCardSent = useRef(false);
-  const flowStepRef = useRef<FlowStep>("nome");
-  const corridasRef = useRef<number | null>(null);
-  const ticketRef = useRef<number | null>(null);
-  const esgotadoShownRef = useRef(false);
-
-  useEffect(() => { flowStepRef.current = flowStep; }, [flowStep]);
-
-  // ─── Timer helpers ───────────────────────────────────────────────────────
-  function scheduleTimer(fn: () => void, delay: number): ReturnType<typeof setTimeout> {
-    const id = setTimeout(fn, delay);
-    pendingTimersRef.current.push(id);
-    return id;
-  }
-
-  function clearAllTimers() {
-    pendingTimersRef.current.forEach(clearTimeout);
-    pendingTimersRef.current = [];
-    if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
-  }
-
-  function showToast(message: string) {
-    const id = generateId();
-    setToast({ message, id });
-    setTimeout(() => setToast(prev => prev?.id === id ? null : prev), 5000);
-  }
-
-  // ─── Effects ─────────────────────────────────────────────────────────────
-
-  async function getPlanoDisponivel(): Promise<typeof PLAN_META[PlanKey] | null> {
-    try {
-      const res = await fetch("/api/planos-disponiveis");
-      const data = await res.json();
-      if (!data.planoAtivo || data.vagasRestantes === 0) return null;
-      const map: Record<string, typeof PLAN_META[PlanKey]> = {
-        platina: PLAN_META.platina, ouro: PLAN_META.ouro, prata: PLAN_META.prata,
-      };
-      return map[data.planoAtivo] ?? null;
-    } catch { return PLAN_META.platina; }
-  }
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
-    fetch("/api/elton/vagas").then(r => r.json()).then(d => setVagas(d.vagas ?? 0)).catch(() => {});
-    getPlanoDisponivel().then(p => { if (p) setSelectedPlan(p); });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  const handleSendText = async (textToSend: string) => {
+    if (!textToSend.trim() || isLoading) return;
 
-  useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (last?.role === "elton" && !typingMessageId) {
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: textToSend,
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
       inputRef.current?.blur();
     }
-  }, [messages, typingMessageId]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (showEntrada) handleEntradaClose();
-      else if (modalSrc) setModalSrc(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showEntrada, modalSrc]);
-
-  useEffect(() => { return () => clearAllTimers(); }, []);
-
-  // ─── Typing animation ────────────────────────────────────────────────────
-  function typeMessage(id: string, fullText: string, timestamp: number): Promise<void> {
-    return new Promise(resolve => {
-      if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
-      setTypingMessageId(id);
-      setMessages(prev => [...prev, { id, role: "elton" as const, text: "", timestamp }]);
-      if (!fullText) { setTypingMessageId(null); resolve(); return; }
-      let i = 0;
-      typingIntervalRef.current = setInterval(() => {
-        i++;
-        const current = fullText.slice(0, i);
-        const done = i >= fullText.length;
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: current } : m));
-        if (done) {
-          clearInterval(typingIntervalRef.current!);
-          typingIntervalRef.current = null;
-          setTypingMessageId(null);
-          resolve();
-        }
-      }, 18);
-    });
-  }
-
-  function addImageCard(src: string) {
-    setModalSrc(src);
-    setMessages(prev => [...prev, { id: generateId(), role: "elton" as const, image: src, timestamp: Date.now() }]);
-  }
-
-  // ─── Entry modal ─────────────────────────────────────────────────────────
-  function handleEntradaClose() {
-    localStorage.setItem("krro_entrada_visto", "true");
-    setShowEntrada(false);
-    scheduleTimer(() => {
-      typeMessage(generateId(), "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?", Date.now());
-    }, 300);
-  }
-
-  async function fetchNextNumber(lot: string) {
     try {
-      const res = await fetch(`/api/reserve/next-number?lot=${lot}`);
-      const data = await res.json();
-      const num = data.number ?? Math.floor(Math.random() * 90) + 10;
-      const suffix = lot === "lote3" ? "PL" : lot === "lote2" ? "OU" : "PR";
-      setMembroNumero(`${String(num).padStart(3, "0")}${suffix}`);
-    } catch { /* ignore */ }
-  }
-
-  // ─── Reserve API ─────────────────────────────────────────────────────────
-  async function doReserve(dados: { nome: string; telefone: string; email: string; placa: string; cidade: string }) {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/reserve", {
+      const response = await fetch("/api/elton", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lot: selectedPlan.lot,
-          conversation_id: sessionId,
-          driver_phone: dados.telefone.replace(/\D/g, ""),
-          driver_name: dados.nome,
-          driver_city: dados.cidade,
+          message: textToSend,
+          // "elton" → "assistant" para compatibilidade com a API do Claude
+          history: messages
+            .filter((m) => m.role !== "system")
+            .map((m) => ({
+              role: m.role === "elton" ? "assistant" : "user",
+              content: m.content,
+            })),
         }),
       });
-      const data = await res.json();
-      console.log("[RESERVE]", data);
 
-      if (data.success === true && data.checkout_url) {
-        if (data.lotUsado && data.lotUsado !== selectedPlan.lot) {
-          const fb: typeof PLAN_META[PlanKey] =
-            data.lotUsado === "lote3" ? PLAN_META.platina
-            : data.lotUsado === "lote2" ? PLAN_META.ouro : PLAN_META.prata;
-          const pct = data.lotUsado === "lote3" ? "94%" : data.lotUsado === "lote2" ? "92%" : "90%";
-          setPendingFallback({ checkout_url: data.checkout_url, lotUsado: data.lotUsado, planoFallback: fb, mensagem: data.mensagem ?? "" });
-          typeMessage(generateId(),
-            `O plano ${selectedPlan.label} esgotou. Aloquei sua vaga no ${fb.label} com ${pct}. O valor é ${fb.valor}. Quer prosseguir?`,
-            Date.now());
-        } else {
-          typeMessage(generateId(),
-            `Aqui está seu link de pagamento:\n${data.checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`,
-            Date.now());
-        }
-      } else if (data.error === "Lote esgotado") {
-        esgotadoShownRef.current = true;
-        typeMessage(generateId(),
-          "As vagas para este plano esgotaram na sua região. Posso te colocar na lista de espera — quer continuar?",
-          Date.now());
+      const data = await response.json();
+
+      if (data.message && data.message.includes("Card:")) {
+        const cardName = data.message.match(/Card:\s*([^\n]+)/)?.[1] || "Clube K-RRO";
+        setCardModal(cardName);
+
+        const systemMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "system",
+          content: `📎 Card: ${cardName}`,
+          image: `/cards/${cardName.toLowerCase().replace(/ /g, "-")}.png`,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, systemMsg]);
       } else {
-        const errMsg = data.error || "Falha ao gerar link. Tente novamente ou digite /reset.";
-        typeMessage(generateId(), `Erro ao processar: ${errMsg}`, Date.now());
+        const eltonMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "elton",
+          content: data.message || "Erro ao processar.",
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, eltonMsg]);
       }
-    } catch (err) {
-      console.error("[RESERVE]", err);
-      showToast("Erro de conexão ao gerar o link. Tente novamente.");
+    } catch (error) {
+      console.error("Erro:", error);
+      const errMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "elton",
+        content: "Problema na conexão. Tente novamente.",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }
+  };
 
-  // ─── Conta automática ────────────────────────────────────────────────────
-  function computeContaMsgs(): [string, string, string] {
-    const corridas = corridasRef.current ?? 20;
-    const ticket = ticketRef.current ?? 18;
-    const total = corridas * ticket;
-    const bruto = total / 0.75;
-    const diferenca = bruto - total;
-    const m1 = `${corridas} corridas × R$${ticket.toFixed(0)} = R$${fmtBR(total)} que você recebeu. O passageiro pagou no mínimo R$${fmtBR(bruto)}. A plataforma ficou com R$${fmtBR(diferenca)}.`;
-    const m2 = `Rodando 5 dias por semana, só de taxa você deixa R$${fmtBR(diferenca * 5)} por semana na plataforma. São R$${fmtBR(diferenca * 20)} por mês. R$${fmtBR(diferenca * 240)} por ano. Com esse valor dá pra andar de carro zero todo ano.`;
-    const m3 = "Vou te mostrar o Clube K-RRO — quero que você esteja sempre de carro zero.";
-    return [m1, m2, m3];
-  }
-
-  async function dispararConta() {
-    const [m1, m2, m3] = computeContaMsgs();
-    await typeMessage(generateId(), m1, Date.now());
-    await new Promise<void>(r => scheduleTimer(() => r(), 1400));
-    await typeMessage(generateId(), m2, Date.now());
-    await new Promise<void>(r => scheduleTimer(() => r(), 1400));
-    await typeMessage(generateId(), m3, Date.now());
-    await new Promise<void>(r => scheduleTimer(() => r(), 900));
-    if (!clubeCardEnviadoRef.current) {
-      clubeCardEnviadoRef.current = true;
-      addImageCard("/cards/clube-todos.png");
-    }
-    setFlowStep("clube");
-    scheduleTimer(() => { setFlowStep("plano"); }, 1100);
-  }
-
-  // ─── Send text ───────────────────────────────────────────────────────────
-  async function sendText(text: string) {
-    if (!text.trim() || loading || typingMessageId !== null) return;
-
-    // /reset
-    if (text.trim() === "/reset") {
-      clearAllTimers();
-      localStorage.clear();
-      localStorage.setItem("elton_reset", "true");
-      clubeCardEnviadoRef.current = false;
-      planCardSent.current = false;
-      cardKRROSentRef.current = false;
-      corridasRef.current = null;
-      ticketRef.current = null;
-      esgotadoShownRef.current = false;
-      setMessages([]);
-      setModalSrc(null);
-      setPendingFallback(null);
-      window.location.reload();
-      return;
-    }
-
-    // Confirmação de fallback de lote
-    if (pendingFallback !== null) {
-      const sim = /\b(sim|s|pode|prosseguir|quero|topo|ok|claro|confirmo)\b/i.test(text.trim());
-      const nao = /\b(não|nao|n|cancela|desiste|cancel)\b/i.test(text.trim());
-      const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
-      setMessages(prev => [...prev, userMsg]);
-      setInput("");
-      if (sim) {
-        const { checkout_url, planoFallback } = pendingFallback;
-        setPendingFallback(null);
-        setSelectedPlan(planoFallback);
-        typeMessage(generateId(), `Perfeito! Aqui está seu link:\n${checkout_url}\n\nVálido por 15 minutos. Qualquer dúvida é só chamar.`, Date.now());
-        return;
-      }
-      if (nao) {
-        setPendingFallback(null);
-        typeMessage(generateId(), "Sem problema. Se mudar de ideia, é só me chamar.", Date.now());
-        return;
-      }
-      typeMessage(generateId(), `Quer prosseguir com o ${pendingFallback.planoFallback.label} (${pendingFallback.planoFallback.valor})?`, Date.now());
-      return;
-    }
-
-    const lowerText = text.trim().toLowerCase();
-
-    // Reenvio de card por solicitação
-    if (lowerText.includes("manda o card") || lowerText.includes("envia de novo")) {
-      if (planCardSent.current) {
-        const img = selectedPlan.label === "Platina" ? "/cards/clube-platina.jpg"
-          : selectedPlan.label === "Ouro" ? "/cards/clube-ouro.jpg" : "/cards/clube-prata.jpg";
-        addImageCard(img);
-      } else if (clubeCardEnviadoRef.current) {
-        addImageCard("/cards/clube-todos.png");
-      }
-    }
-
-    // Extração de números para conta
-    const currentStep = flowStepRef.current;
-    if (currentStep === "corridas") {
-      const n = extractNumber(text);
-      if (n && n > 0) corridasRef.current = n;
-    } else if (currentStep === "ticket") {
-      const n = extractNumber(text);
-      if (n && n > 0) ticketRef.current = n;
-    }
-
-    const userMsg: Message = { id: generateId(), role: "user", text: text.trim(), timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
-
-    const prevStep = flowStepRef.current;
-
-    try {
-      const history = messages
-        .filter(m => m.text && !m.image && !m.audioUrl)
-        .slice(-16)
-        .map(m => ({
-          role: m.role === "elton" ? "assistant" as const : "user" as const,
-          content: m.text!,
-        }));
-
-      const res = await fetch("/api/elton", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text.trim(),
-          conversationId: sessionId,
-          vagasLote1: vagas,
-          history,
-        }),
-      });
-      const data = await res.json();
-
-      if (data.message) {
-        apiCallCountRef.current += 1;
-
-        // Ticket → conta client-side
-        if (prevStep === "ticket") {
-          setLoading(false);
-          setFlowStep("conta");
-          scheduleTimer(() => { if (flowStepRef.current === "conta") dispararConta(); }, 600);
-          scheduleTimer(() => inputRef.current?.focus(), 50);
-          return;
-        }
-
-        // Fraciona mensagens longas em blocos para mobile
-        const blocks = splitMessageForMobile(data.message);
-        for (let i = 0; i < blocks.length; i++) {
-          await typeMessage(generateId(), blocks[i], Date.now());
-          if (i < blocks.length - 1) {
-            await new Promise<void>(r => scheduleTimer(() => r(), 800));
-          }
-        }
-
-        // Card após nome (primeira chamada)
-        if (apiCallCountRef.current === 1 && !cardKRROSentRef.current) {
-          cardKRROSentRef.current = true;
-          setFlowStep("card");
-          scheduleTimer(() => { addImageCard("/cards/cardk-rrobranco.png"); }, 2000);
-        }
-
-        // Clube card — dispara quando Elton usa a frase exata, uma vez por sessão
-        if (data.message.includes("Vou te mostrar o Clube K-RRO") && !clubeCardEnviadoRef.current) {
-          clubeCardEnviadoRef.current = true;
-          scheduleTimer(() => addImageCard("/cards/clube-todos.png"), 800);
-        }
-
-        // Step transitions
-        if (prevStep === "pergunta")       setFlowStep("cidade");
-        else if (prevStep === "cidade")    setFlowStep("carro");
-        else if (prevStep === "carro")     setFlowStep("ano");
-        else if (prevStep === "ano")       setFlowStep("corridas");
-        else if (prevStep === "corridas")  setFlowStep("ticket");
-      }
-    } catch (err) {
-      showToast("Erro de conexão. Tente novamente." + (err instanceof Error ? ` (${err.message})` : ""));
-    } finally {
-      setLoading(false);
-      scheduleTimer(() => inputRef.current?.focus(), 50);
-    }
-  }
-
-  // Wrapper público — usado por transcrição de áudio e outros pontos de entrada
-  async function sendMessage(text: string) {
-    await sendText(text);
-  }
-
-  // ─── Recording ───────────────────────────────────────────────────────────
-  async function startRecording() {
+  // --- LÓGICA DE ÁUDIO ---
+  const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunksRef.current = [];
-      const mr = new MediaRecorder(stream);
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const audioUrl = URL.createObjectURL(blob);
-        setMessages(prev => [...prev, { id: generateId(), role: "user", audioUrl, timestamp: Date.now() }]);
-        stream.getTracks().forEach(t => t.stop());
-        setIsProcessing(false);
-      };
-      mr.start();
-      mrRef.current = mr;
-      setIsRecording(true);
-    } catch { /* mic unavailable */ }
-  }
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
 
-  function stopRecording() { mrRef.current?.stop(); mrRef.current = null; setIsRecording(false); setIsProcessing(true); }
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        setIsLoading(true);
+        try {
+          const formData = new FormData();
+          formData.append("audio", audioBlob, "recording.webm");
 
-  // ─── Image upload ─────────────────────────────────────────────────────────
-  function handleImageUpload(file: File) {
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64String = reader.result as string;
-      const base64Data = base64String.split(",")[1];
-      const mimeType = file.type;
-
-      // Mostra preview no chat
-      setMessages(prev => [...prev, {
-        id: generateId(),
-        role: "user" as const,
-        text: "Analise este relatório de ganhos.",
-        image: base64String,
-        timestamp: Date.now(),
-      }]);
-
-      setLoading(true);
-      try {
-        const history = messages
-          .filter(m => m.text && !m.image && !m.audioUrl)
-          .slice(-16)
-          .map(m => ({
-            role: m.role === "elton" ? "assistant" as const : "user" as const,
-            content: m.text!,
-          }));
-
-        const res = await fetch("/api/elton", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: "Analise este relatório de ganhos. Compare com a K-RRO.",
-            conversationId: sessionId,
-            vagasLote1: vagas,
-            history,
-            image: { data: base64Data, mimeType },
-          }),
-        });
-        const data = await res.json();
-        if (data.message) {
-          await typeMessage(generateId(), data.message, Date.now());
+          const res = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (data.transcription) {
+            await handleSendText(data.transcription);
+          } else {
+            alert("Não consegui entender o áudio.");
+          }
+        } catch {
+          alert("Erro ao transcrever áudio.");
+        } finally {
+          setIsLoading(false);
+          setIsRecording(false);
         }
-      } catch (err) {
-        showToast("Erro ao analisar imagem." + (err instanceof Error ? ` (${err.message})` : ""));
-      } finally {
-        setLoading(false);
-        scheduleTimer(() => inputRef.current?.focus(), 50);
-      }
-    };
-    reader.readAsDataURL(file);
-  }
+      };
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+    } catch {
+      alert("Permita o microfone para enviar áudios.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <style>{`
-        @keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,.5)}50%{box-shadow:0 0 0 4px rgba(0,255,136,0)}}
-        .page-input:focus{border-color:#0066ff!important;outline:none;box-shadow:0 0 0 2px rgba(0,102,255,.2)}
-        .page-input::placeholder{color:#555}
-        .page-send:hover:not(:disabled){background:#0052cc!important}
-        .page-online{animation:pulse-green 2s infinite}
-        @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-      `}</style>
+    <div className="flex flex-col h-screen bg-[#0a0a0a] text-white overflow-hidden">
 
-      {/* Modal de entrada */}
-      {showEntrada && (
-        <div style={{ position:"fixed",inset:0,backgroundColor:"#000",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center" }}>
-          <img src="/cards/krro-apresentacao.png" alt="K-RRO"
-            style={{ maxWidth:"100%",maxHeight:"100%",objectFit:"contain" }}
-            onClick={() => setModalSrc("/cards/krro-apresentacao.png")} />
-          <button onClick={handleEntradaClose} aria-label="Fechar"
-            style={{ position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",fontSize:32,cursor:"pointer",lineHeight:1,padding:"8px 12px",minWidth:44,minHeight:44 }}>
-            ×
-          </button>
+      {/* HEADER */}
+      <div className="flex items-center p-4 border-b border-gray-800 bg-[#0a0a0a] z-10">
+        <div className="flex flex-col">
+          <h1 className="font-bold text-lg">Elton</h1>
+          <span className="text-xs text-gray-400">Consultor K-RRO</span>
         </div>
-      )}
-
-      {/* Chat */}
-      <div className="relative w-full max-w-[480px] flex flex-col overflow-hidden"
-        style={{ height:"100dvh",maxHeight:"100dvh",backgroundColor:"#0a0a0f",boxShadow:"0 0 40px rgba(0,102,255,0.25),inset 0 0 0 1px rgba(0,102,255,0.15)" }}>
-
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 z-10 flex-shrink-0"
-          style={{ backgroundColor:"#0a0a0f",borderBottom:"1px solid #0066ff" }}>
-          <img src="/logo-krro.png" alt="K-RRO"
-            style={{ height:32,objectFit:"contain",flexShrink:0,filter:"brightness(0) invert(1)" }} />
-          <div className="flex-1 min-w-0">
-            <p style={{ color:"#ffffff",fontWeight:700,fontSize:14,lineHeight:1.2 }}>Elton</p>
-            <p style={{ color:"#aaaaaa",fontSize:11 }}>Consultor K-RRO</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="page-online" style={{ width:8,height:8,borderRadius:"50%",background:"#00ff88",display:"inline-block" }} />
-            <span style={{ color:"#00ff88",fontSize:11 }}>online</span>
-          </div>
-          {process.env.NEXT_PUBLIC_DEV_MODE === "true" && (
-            <button onClick={() => { localStorage.clear(); window.location.reload(); }}
-              className="text-[10px] transition-colors flex-shrink-0 px-2 py-0.5 rounded"
-              style={{ color:"#0066ff",border:"1px solid #0066ff" }} title="Limpar sessão (apenas dev)">
-              Nova conversa
-            </button>
-          )}
-        </div>
-
-        {/* Mensagens */}
-        <div className="flex-1 relative overflow-hidden" style={{ backgroundColor:"#0a0a0f" }}>
-          <img src="/logo-krro.png" alt="" aria-hidden="true"
-            style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"70%",maxWidth:300,opacity:0.04,filter:"brightness(0) invert(1)",pointerEvents:"none",zIndex:0,userSelect:"none" }} />
-          <div className="absolute inset-0 overflow-y-auto px-3 py-4 pb-28 space-y-2" style={{ zIndex:1 }}>
-            {messages.map((msg) => {
-              const isElton = msg.role === "elton";
-              if (isElton && msg.text !== undefined && !msg.image && !msg.audioUrl) {
-                const clean = msg.text.replace(/\*\[.*?\]\*/g, "").trim();
-                if (!clean) return null;
-              }
-              return (
-                <div key={msg.id} className={`flex items-end gap-1.5 ${isElton ? "justify-start" : "justify-end"}`}>
-                  <div className="max-w-[90%] px-3 py-2 text-sm leading-snug"
-                    style={isElton
-                      ? { backgroundColor:"#0d1117",borderLeft:"3px solid #0066ff",color:"#e0e0e0",borderRadius:"0 12px 12px 12px" }
-                      : { backgroundColor:"#0066ff",color:"#ffffff",borderRadius:"12px 12px 0 12px" }}>
-                    {msg.audioUrl && (
-                      <audio controls src={msg.audioUrl} className="max-w-[220px]" style={{ height:36 }} />
-                    )}
-                    {typeof msg.text === "string" && (
-                      <p className="whitespace-pre-wrap break-words">
-                        {msg.text}
-                        {typingMessageId === msg.id && (
-                          <span style={{ animation:"blink 1s step-end infinite" }}>|</span>
-                        )}
-                      </p>
-                    )}
-                    {msg.image && (
-                      <div className="mt-2">
-                        <p style={{ color:"#888",fontSize:11,marginBottom:4 }}>📎 Card: {cardLabel(msg.image)}</p>
-                        <img
-                          src={msg.image}
-                          alt={cardLabel(msg.image)}
-                          className="w-full max-w-md rounded-xl shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                          onClick={() => setModalSrc(msg.image!)}
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-end gap-1 mt-1">
-                      <span suppressHydrationWarning className="text-[10px] tabular-nums font-mono" style={{ color:"#666666" }}>
-                        {formatTime(msg.timestamp)}
-                      </span>
-                      {!isElton && <span className="text-[11px] leading-none text-white opacity-80">✓✓</span>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {loading && !typingMessageId && (
-              <div className="flex items-end justify-start">
-                <div className="px-4 py-3"
-                  style={{ backgroundColor:"#0d1117",borderLeft:"3px solid #0066ff",borderRadius:"0 12px 12px 12px" }}>
-                  <div className="flex gap-1 items-center">
-                    {[0, 150, 300].map(delay => (
-                      <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ backgroundColor:"#0066ff",animationDelay:`${delay}ms` }} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-        </div>
-
-        {/* Input */}
-        <div className="fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 p-3 pb-6">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ""; }}
-          />
-          <div className="flex items-center gap-3">
-            {/* Câmera */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading || typingMessageId !== null || showEntrada}
-              aria-label="Enviar imagem"
-              title="Enviar relatório de ganhos"
-              className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white flex-shrink-0 disabled:opacity-40 transition-opacity">
-              📷
-            </button>
-
-            {/* Input */}
-            <input
-              ref={inputRef}
-              id="chat-input"
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(input); } }}
-              placeholder="Digite..."
-              disabled={loading || typingMessageId !== null || showEntrada}
-              className="page-input flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none text-base disabled:opacity-40 transition-opacity"
-            />
-
-            {/* Mic / Enviar */}
-            {input.trim() ? (
-              <button
-                onClick={() => sendText(input)}
-                disabled={loading || typingMessageId !== null}
-                aria-label="Enviar mensagem"
-                className="page-send w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity">
-                <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              </button>
-            ) : (
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => isRecording ? stopRecording() : startRecording()}
-                  disabled={isProcessing}
-                  aria-label={isRecording ? "Parar gravação" : "Iniciar gravação"}
-                  className={`relative w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300
-                    ${isProcessing ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                    ${isRecording ? "shadow-lg" : ""}`}
-                  style={{ backgroundColor: isRecording ? "#ef4444" : "#2563eb" }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-white transition-transform duration-300 ${isRecording ? "scale-110" : ""}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                  {isRecording && (
-                    <>
-                      <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-30" />
-                      <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
-                    </>
-                  )}
-                </button>
-                {isProcessing && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap animate-pulse">
-                    Processando...
-                  </div>
-                )}
-                {isRecording && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                    Gravando
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          <span className="text-xs text-green-500">online</span>
         </div>
       </div>
 
-      {modalSrc && <CardModal src={modalSrc} onClose={() => setModalSrc(null)} />}
+      {/* CHAT AREA */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+              msg.role === "user"
+                ? "bg-blue-600 rounded-tr-none"
+                : "bg-[#1a1a1a] border border-gray-800 rounded-tl-none"
+            }`}>
 
-      {toast && (
-        <div style={{ position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",
-          backgroundColor:"#dc2626",color:"#fff",padding:"10px 14px",borderRadius:10,
-          fontSize:13,maxWidth:"90%",zIndex:99999,display:"flex",alignItems:"center",
-          gap:8,boxShadow:"0 4px 20px rgba(0,0,0,0.5)" }}>
-          <span style={{ flex:1,lineHeight:1.4 }}>{toast.message}</span>
+              {msg.role === "system" && msg.image ? (
+                <div className="mt-2" onClick={() => setCardModal(msg.content.replace("📎 Card: ", ""))}>
+                  <div className="bg-gray-800 p-2 rounded-lg border border-gray-700 cursor-pointer hover:opacity-90 transition">
+                    <p className="text-xs text-gray-400 mb-2">{msg.content}</p>
+                    <div className="w-full h-48 bg-gray-900 flex items-center justify-center rounded">
+                      <span className="text-4xl">🖼️</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              )}
+
+              <span className="text-[10px] text-gray-500 block mt-1 text-right">
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-[#1a1a1a] border border-gray-800 rounded-2xl rounded-tl-none px-4 py-3">
+              <div className="flex gap-1">
+                {[0, 150, 300].map((d) => (
+                  <span key={d} className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                    style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* INPUT AREA (FIXO) */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#0a0a0a] p-3 pb-6 border-t border-gray-800">
+        <div className="flex items-center gap-3 max-w-4xl mx-auto">
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSendText(input)}
+            placeholder="Digite sua mensagem..."
+            disabled={isRecording || isLoading}
+            className="flex-1 bg-[#1a1a1a] text-white rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base"
+          />
+
           <button
-            onClick={() => navigator.clipboard?.writeText(toast.message).catch(() => {})}
-            title="Copiar erro"
-            style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:16,padding:2,opacity:0.8 }}>
-            📋
+            onClick={() => handleSendText(input)}
+            disabled={!input.trim() || isLoading || isRecording}
+            className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:bg-blue-500 transition"
+          >
+            ➤
           </button>
+
           <button
-            onClick={() => setToast(null)}
-            style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 2px" }}>
-            ×
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isLoading}
+            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition transform ${
+              isRecording
+                ? "bg-red-600 animate-pulse scale-110"
+                : "bg-gray-700 hover:bg-gray-600"
+            }`}
+          >
+            {isLoading && !isRecording ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="text-xl">{isRecording ? "⏹️" : "🎤"}</span>
+            )}
           </button>
         </div>
+      </div>
+
+      {/* MODAL CARD TELA CHEIA */}
+      {cardModal && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
+          <button
+            onClick={() => setCardModal(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-50"
+          >
+            ✕
+          </button>
+          <h2 className="text-xl font-bold mb-4">{cardModal}</h2>
+          <div className="w-full max-w-lg h-[70vh] bg-gray-900 rounded-xl flex items-center justify-center border border-gray-800">
+            <p className="text-gray-500">Imagem do Card: {cardModal}</p>
+          </div>
+        </div>
       )}
+
     </div>
   );
 }
