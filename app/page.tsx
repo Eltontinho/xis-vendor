@@ -1,3 +1,4 @@
+// ⚠️ NUNCA EDITE lib/elton/system.ts VIA ESTE AGENTE. Prompt gerenciado manualmente.
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -105,6 +106,7 @@ export default function EltonChat() {
     checkout_url: string; lotUsado: string;
     planoFallback: typeof PLAN_META[PlanKey]; mensagem: string;
   } | null>(null);
+  const [toast, setToast] = useState<{ message: string; id: string } | null>(null);
 
   const [sessionId] = useState<string>(() =>
     typeof window !== "undefined" ? getSessionId() : `ssr_${Date.now()}`
@@ -140,6 +142,12 @@ export default function EltonChat() {
     pendingTimersRef.current.forEach(clearTimeout);
     pendingTimersRef.current = [];
     if (typingIntervalRef.current) { clearInterval(typingIntervalRef.current); typingIntervalRef.current = null; }
+  }
+
+  function showToast(message: string) {
+    const id = generateId();
+    setToast({ message, id });
+    setTimeout(() => setToast(prev => prev?.id === id ? null : prev), 5000);
   }
 
   // ─── Effects ─────────────────────────────────────────────────────────────
@@ -201,6 +209,7 @@ export default function EltonChat() {
   }
 
   function addImageCard(src: string) {
+    setModalSrc(src);
     setMessages(prev => [...prev, { id: generateId(), role: "elton" as const, image: src, timestamp: Date.now() }]);
   }
 
@@ -267,7 +276,7 @@ export default function EltonChat() {
       }
     } catch (err) {
       console.error("[RESERVE]", err);
-      typeMessage(generateId(), "Erro de conexão ao gerar o link. Tente novamente.", Date.now());
+      showToast("Erro de conexão ao gerar o link. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -415,7 +424,7 @@ export default function EltonChat() {
         for (let i = 0; i < blocks.length; i++) {
           await typeMessage(generateId(), blocks[i], Date.now());
           if (i < blocks.length - 1) {
-            await new Promise<void>(r => scheduleTimer(() => r(), 400));
+            await new Promise<void>(r => scheduleTimer(() => r(), 800));
           }
         }
 
@@ -439,8 +448,8 @@ export default function EltonChat() {
         else if (prevStep === "ano")       setFlowStep("corridas");
         else if (prevStep === "corridas")  setFlowStep("ticket");
       }
-    } catch {
-      typeMessage(generateId(), "Sistema instável. Tente novamente.", Date.now());
+    } catch (err) {
+      showToast("Erro de conexão. Tente novamente." + (err instanceof Error ? ` (${err.message})` : ""));
     } finally {
       setLoading(false);
       scheduleTimer(() => inputRef.current?.focus(), 50);
@@ -516,8 +525,8 @@ export default function EltonChat() {
         if (data.message) {
           await typeMessage(generateId(), data.message, Date.now());
         }
-      } catch {
-        typeMessage(generateId(), "Erro ao analisar a imagem. Tente novamente.", Date.now());
+      } catch (err) {
+        showToast("Erro ao analisar imagem." + (err instanceof Error ? ` (${err.message})` : ""));
       } finally {
         setLoading(false);
         scheduleTimer(() => inputRef.current?.focus(), 50);
@@ -590,7 +599,7 @@ export default function EltonChat() {
               }
               return (
                 <div key={msg.id} className={`flex items-end gap-1.5 ${isElton ? "justify-start" : "justify-end"}`}>
-                  <div className="max-w-[78%] px-3 py-2 text-sm leading-snug"
+                  <div className="max-w-[90%] px-3 py-2 text-sm leading-snug"
                     style={isElton
                       ? { backgroundColor:"#0d1117",borderLeft:"3px solid #0066ff",color:"#e0e0e0",borderRadius:"0 12px 12px 12px" }
                       : { backgroundColor:"#0066ff",color:"#ffffff",borderRadius:"12px 12px 0 12px" }}>
@@ -658,7 +667,7 @@ export default function EltonChat() {
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || typingMessageId !== null || showEntrada}
             aria-label="Enviar imagem"
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
+            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
             style={{ backgroundColor:"#0d1117",border:"1px solid #222",fontSize:16 }}
             title="Enviar relatório de ganhos">
             📷
@@ -677,7 +686,7 @@ export default function EltonChat() {
           {input.trim() ? (
             <button onClick={() => sendText(input)} disabled={loading || typingMessageId !== null}
               aria-label="Enviar mensagem"
-              className="page-send w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+              className="page-send w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
               style={{ backgroundColor:"#0066ff" }}>
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -722,6 +731,26 @@ export default function EltonChat() {
       </div>
 
       {modalSrc && <CardModal src={modalSrc} onClose={() => setModalSrc(null)} />}
+
+      {toast && (
+        <div style={{ position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",
+          backgroundColor:"#dc2626",color:"#fff",padding:"10px 14px",borderRadius:10,
+          fontSize:13,maxWidth:"90%",zIndex:99999,display:"flex",alignItems:"center",
+          gap:8,boxShadow:"0 4px 20px rgba(0,0,0,0.5)" }}>
+          <span style={{ flex:1,lineHeight:1.4 }}>{toast.message}</span>
+          <button
+            onClick={() => navigator.clipboard?.writeText(toast.message).catch(() => {})}
+            title="Copiar erro"
+            style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:16,padding:2,opacity:0.8 }}>
+            📋
+          </button>
+          <button
+            onClick={() => setToast(null)}
+            style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 2px" }}>
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }
