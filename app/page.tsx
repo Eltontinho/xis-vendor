@@ -174,6 +174,13 @@ export default function EltonChat() {
   }, [messages, loading]);
 
   useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === "elton" && !typingMessageId) {
+      inputRef.current?.blur();
+    }
+  }, [messages, typingMessageId]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (showEntrada) handleEntradaClose();
@@ -667,7 +674,7 @@ export default function EltonChat() {
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || typingMessageId !== null || showEntrada}
             aria-label="Enviar imagem"
-            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
+            className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40"
             style={{ backgroundColor:"#0d1117",border:"1px solid #222",fontSize:16 }}
             title="Enviar relatório de ganhos">
             📷
@@ -682,11 +689,12 @@ export default function EltonChat() {
             disabled={loading || typingMessageId !== null || showEntrada}
             className="page-input flex-1 rounded-full px-4 py-2 text-sm outline-none transition-colors disabled:opacity-40"
             style={{ backgroundColor:"#0d1117",border:"1px solid #222",color:"#ffffff",fontSize:16 }}
+            id="chat-input"
           />
           {input.trim() ? (
             <button onClick={() => sendText(input)} disabled={loading || typingMessageId !== null}
               aria-label="Enviar mensagem"
-              className="page-send w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+              className="page-send w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
               style={{ backgroundColor:"#0066ff" }}>
               <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 translate-x-0.5">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -700,7 +708,7 @@ export default function EltonChat() {
                 aria-label={isRecording ? "Parar gravação" : "Iniciar gravação"}
                 className={`relative flex items-center justify-center rounded-full transition-all duration-300 ease-out
                   ${isProcessing ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  ${isRecording ? "w-12 h-12 shadow-lg" : "w-10 h-10"}`}
+                  ${isRecording ? "w-12 h-12 shadow-lg" : "w-12 h-12"}`}
                 style={{ backgroundColor: isRecording ? "#ef4444" : "#0066ff",
                   boxShadow: isRecording ? "0 0 0 0 rgba(239,68,68,0.5)" : undefined }}>
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-white transition-transform duration-300 ${isRecording ? "scale-110" : ""}`}
