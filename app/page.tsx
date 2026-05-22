@@ -49,6 +49,34 @@ function extractNumber(text: string): number | null {
 
 function fmtBR(n: number): string { return Math.round(n).toLocaleString("pt-BR"); }
 
+function splitMessageForMobile(text: string): string[] {
+  const MAX_CHARS = 280;
+  const blocks: string[] = [];
+
+  const paragraphs = text.split("\n\n").filter(p => p.trim());
+
+  for (const paragraph of paragraphs) {
+    if (paragraph.length <= MAX_CHARS) {
+      blocks.push(paragraph);
+    } else {
+      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+      let currentBlock = "";
+
+      for (const sentence of sentences) {
+        if ((currentBlock + sentence).length <= MAX_CHARS) {
+          currentBlock += sentence;
+        } else {
+          if (currentBlock) blocks.push(currentBlock.trim());
+          currentBlock = sentence;
+        }
+      }
+      if (currentBlock) blocks.push(currentBlock.trim());
+    }
+  }
+
+  return blocks.filter(b => b.trim());
+}
+
 function cardLabel(src: string): string {
   if (src.includes("cardk-rrobranco")) return "Clube K-RRO";
   if (src.includes("clube-platina")) return "Plano Platina";
@@ -382,7 +410,14 @@ export default function EltonChat() {
           return;
         }
 
-        await typeMessage(generateId(), data.message, Date.now());
+        // Fraciona mensagens longas em blocos para mobile
+        const blocks = splitMessageForMobile(data.message);
+        for (let i = 0; i < blocks.length; i++) {
+          await typeMessage(generateId(), blocks[i], Date.now());
+          if (i < blocks.length - 1) {
+            await new Promise<void>(r => scheduleTimer(() => r(), 400));
+          }
+        }
 
         // Card após nome (primeira chamada)
         if (apiCallCountRef.current === 1 && !cardKRROSentRef.current) {
