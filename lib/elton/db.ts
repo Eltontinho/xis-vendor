@@ -20,6 +20,9 @@ export interface LeadProfile {
   vehicle_cat?:   string;
   rides_per_day?: number;
   main_pain?:     string;
+  biggest_fear?:  string;
+  main_desire?:   string;
+  desire_score?:  number;
   intent_score:   number;
   plan_chosen?:   string;
   converted_at?:  string;

@@ -1,22 +1,3 @@
-/**
- * Extrai número de telefone brasileiro da mensagem do usuário.
- * Aceita formatos: (11) 99999-9999 | 11999999999 | +5511999999999
- * Retorna apenas dígitos DDD+número (11 dígitos) ou null.
- */
-export function extractPhone(text: string): string | null {
-  const clean = text.replace(/\D/g, "");
-
-  if (clean.length === 13 && clean.startsWith("55")) {
-    return clean.slice(2);
-  }
-
-  if (clean.length === 11 || clean.length === 10) {
-    return clean;
-  }
-
-  return null;
-}
-
 const VALID_DDDS = new Set([
   "11","12","13","14","15","16","17","18","19",
   "21","22","24",
@@ -52,16 +33,45 @@ export function extractDDD(phone: string): string | null {
   return VALID_DDDS.has(ddd) ? ddd : null;
 }
 
+const FEAR_SIGNALS: Record<string, string> = {
+  "golpe":       "golpe_fraude",
+  "fraude":      "golpe_fraude",
+  "mentira":     "golpe_fraude",
+  "enganar":     "golpe_fraude",
+  "perder":      "perda_dinheiro",
+  "dinheiro":    "perda_dinheiro",
+  "caro":        "custo_alto",
+  "não vale":    "custo_alto",
+  "medo":        "medo_generico",
+  "não sei":     "incerteza",
+  "desconfiado": "incerteza",
+};
+
+const DESIRE_SIGNALS: Record<string, string> = {
+  "independência":   "independencia_financeira",
+  "independente":    "independencia_financeira",
+  "sair do aluguel": "sair_aluguel",
+  "casa própria":    "sair_aluguel",
+  "família":         "seguranca_familia",
+  "filho":           "seguranca_familia",
+  "estabilidade":    "estabilidade",
+  "renda extra":     "renda_extra",
+  "ganhar mais":     "renda_extra",
+  "aposentar":       "aposentadoria",
+};
+
 export interface ExtractedProfile {
   vehicle_model?: string;
   vehicle_year?:  number;
   rides_per_day?: number;
   main_pain?:     string;
   plan_chosen?:   "prata" | "ouro" | "platina";
+  biggest_fear?:  string;
+  main_desire?:   string;
 }
 
 export function extractProfileUpdates(conversationText: string): ExtractedProfile {
-  const text = conversationText.toLowerCase();
+  const text   = conversationText.toLowerCase();
   const result: ExtractedProfile = {};
 
   const ridesMatch = text.match(/(?:faço|umas?|[^\d]|^)(\d{1,2})\s*corridas?/);
@@ -70,14 +80,22 @@ export function extractProfileUpdates(conversationText: string): ExtractedProfil
   const yearMatch = text.match(/\b(20[12][0-9])\b/);
   if (yearMatch) result.vehicle_year = parseInt(yearMatch[1], 10);
 
-  if (text.includes("platina"))                                   result.plan_chosen = "platina";
-  else if (text.includes("ouro"))                                 result.plan_chosen = "ouro";
-  else if (text.includes("prata"))                                result.plan_chosen = "prata";
+  if (text.includes("platina"))                                    result.plan_chosen = "platina";
+  else if (text.includes("ouro"))                                  result.plan_chosen = "ouro";
+  else if (text.includes("prata"))                                 result.plan_chosen = "prata";
 
   if (text.includes("gasolina") || text.includes("combustível"))  result.main_pain = "combustivel";
   else if (text.includes("seguro"))                               result.main_pain = "seguro";
   else if (text.includes("taxa") || text.includes("uber"))        result.main_pain = "taxa_plataforma";
   else if (text.includes("manutenção") || text.includes("revisão")) result.main_pain = "manutencao";
+
+  for (const [signal, value] of Object.entries(FEAR_SIGNALS)) {
+    if (text.includes(signal)) { result.biggest_fear = value; break; }
+  }
+
+  for (const [signal, value] of Object.entries(DESIRE_SIGNALS)) {
+    if (text.includes(signal)) { result.main_desire = value; break; }
+  }
 
   return result;
 }

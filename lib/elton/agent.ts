@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { getEltonSystemPrompt } from "./system";
 import { getProfile, upsertProfile, getHistory, saveHistory, getVagasDisponiveis } from "./db";
 import { validateEltonOutput, ELTON_FALLBACK } from "./validator";
-import { extractPhone, extractDDD, extractProfileUpdates } from "./extractor";
+import { extractDDD, extractProfileUpdates } from "./extractor";
 import { extractNameAndVehicle } from "./compressor";
 import { detectIntent, getNextStage, LeadStage } from "./state";
 import type { LeadProfile, Turn } from "./db";
@@ -13,21 +13,15 @@ const deepseek = new OpenAI({
 });
 
 export interface EltonResult {
-  message:        string;
-  stage:          LeadStage;
-  phoneExtracted: string | null;
-  vagas:          number;
+  message: string;
+  stage:   LeadStage;
+  vagas:   number;
 }
 
 export async function eltonAgent(
-  message:        string,
-  sessionId:      string,
-  confirmedPhone: string | null
+  message: string,
+  phone:   string
 ): Promise<EltonResult> {
-  const phoneFromMessage = extractPhone(message);
-  const phone = confirmedPhone ?? phoneFromMessage ?? sessionId;
-  const newPhoneFound = !confirmedPhone && !!phoneFromMessage ? phoneFromMessage : null;
-
   const [profile, history, vagas] = await Promise.all([
     getProfile(phone),
     getHistory(phone),
@@ -51,8 +45,8 @@ export async function eltonAgent(
   try {
     const completion = await deepseek.chat.completions.create(
       {
-        model:      "deepseek-chat",
-        max_tokens: 512,
+        model:       "deepseek-chat",
+        max_tokens:  512,
         temperature: 0.7,
         messages: [
           { role: "system", content: systemPrompt },
@@ -74,10 +68,10 @@ export async function eltonAgent(
     { role: "assistant", content: reply   },
   ] as Turn[]);
 
-  const intent      = detectIntent(message);
+  const intent       = detectIntent(message);
   const currentStage = profile?.stage ?? LeadStage.NOVO;
-  const nextStage   = getNextStage(currentStage, intent);
-  const intentScore = Math.max(0, (profile?.intent_score ?? 0) + (intent === "buy" ? 1 : intent === "objection" ? -1 : 0));
+  const nextStage    = getNextStage(currentStage, intent);
+  const intentScore  = Math.max(0, (profile?.intent_score ?? 0) + (intent === "buy" ? 1 : intent === "objection" ? -1 : 0));
 
   const profileBase: LeadProfile = {
     phone,
@@ -89,7 +83,6 @@ export async function eltonAgent(
   await upsertProfile(profile ? { ...profile, ...profileBase } : profileBase);
 
   // Non-blocking enrichment
-  const snippet = history.slice(-4).map(t => t.content).join(" ") + " " + message;
   Promise.all([
     (async () => {
       const extracted = extractProfileUpdates(message + " " + reply);
@@ -100,6 +93,7 @@ export async function eltonAgent(
     })(),
     (async () => {
       if (!profile?.driver_name || !profile?.vehicle_model) {
+        const snippet  = history.slice(-4).map(t => t.content).join(" ") + " " + message;
         const enriched = await extractNameAndVehicle(snippet);
         if (enriched.driver_name || enriched.vehicle_model) {
           const { patchProfile } = await import("./db");
@@ -112,5 +106,5 @@ export async function eltonAgent(
     })(),
   ]).catch(() => {});
 
-  return { message: reply, stage: nextStage, phoneExtracted: newPhoneFound, vagas };
+  return { message: reply, stage: nextStage, vagas };
 }

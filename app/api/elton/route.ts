@@ -16,38 +16,33 @@ export async function POST(req: NextRequest) {
   }
 
   let rawMessage: string;
-  let sessionId: string;
-  let confirmedPhone: string | null;
+  let phone: string;
 
   try {
     const body = await req.json();
-    rawMessage     = body.message ?? "";
-    sessionId      = body.session_id ?? "unknown";
-    confirmedPhone = body.confirmed_phone ?? null;
+    rawMessage = body.message ?? "";
+    phone      = String(body.phone ?? "").trim();
   } catch {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
   const message = sanitizeInput(rawMessage);
-  if (!message) {
-    return NextResponse.json({ error: "empty_message" }, { status: 400 });
+  if (!message || !phone) {
+    return NextResponse.json({ error: "missing fields: message, phone" }, { status: 400 });
   }
 
-  if (confirmedPhone) {
-    const phoneLimit = await checkRateLimit(confirmedPhone, "phone");
-    if (!phoneLimit.allowed) {
-      return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
-    }
+  const phoneLimit = await checkRateLimit(phone, "phone");
+  if (!phoneLimit.allowed) {
+    return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
   }
 
   try {
-    const result = await eltonAgent(message, sessionId, confirmedPhone);
+    const result = await eltonAgent(message, phone);
     return NextResponse.json({
-      agent:           "ELTON",
-      message:         result.message,
-      stage:           result.stage,
-      phone_extracted: result.phoneExtracted,
-      vagas:           result.vagas,
+      agent:   "ELTON",
+      message: result.message,
+      stage:   result.stage,
+      vagas:   result.vagas,
     });
   } catch (error) {
     console.error("[/api/elton] Error:", error instanceof Error ? error.message : String(error));

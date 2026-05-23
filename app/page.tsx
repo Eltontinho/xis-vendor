@@ -1,32 +1,23 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface Message {
   role: "user" | "elton";
   content: string;
 }
 
-function getOrCreateSessionId(): string {
-  const KEY = "elton_session_id";
-  let id = sessionStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(KEY, id);
-  }
-  return id;
-}
-
 const SECRET = process.env.NEXT_PUBLIC_ELTON_CLIENT_SECRET ?? "";
 
-export default function Home() {
+function EltonChat({ phone }: { phone: string }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "elton", content: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?" },
   ]);
-  const [input, setInput]           = useState("");
-  const [loading, setLoading]       = useState(false);
+  const [input, setInput]             = useState("");
+  const [loading, setLoading]         = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [stage, setStage]           = useState("novo");
-  const [vagas, setVagas]           = useState<number | null>(null);
+  const [stage, setStage]             = useState("novo");
+  const [vagas, setVagas]             = useState<number | null>(null);
 
   const bottomRef        = useRef<HTMLDivElement>(null);
   const inputRef         = useRef<HTMLInputElement>(null);
@@ -52,19 +43,14 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const sessionId      = getOrCreateSessionId();
-      const confirmedPhone = sessionStorage.getItem("elton_confirmed_phone");
-
       const res  = await fetch("/api/elton", {
         method:  "POST",
         headers: { "Content-Type": "application/json", "x-elton-secret": SECRET },
-        body:    JSON.stringify({ message: text, session_id: sessionId, confirmed_phone: confirmedPhone }),
+        body:    JSON.stringify({ message: text, phone }),
       });
 
       const data = await res.json();
-
-      if (data.phone_extracted) sessionStorage.setItem("elton_confirmed_phone", data.phone_extracted);
-      if (data.stage)           setStage(data.stage);
+      if (data.stage)                    setStage(data.stage);
       if (typeof data.vagas === "number") setVagas(data.vagas);
 
       setMessages(prev => [...prev, { role: "elton", content: data.message ?? "..." }]);
@@ -74,7 +60,7 @@ export default function Home() {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 80);
     }
-  }, [loading]);
+  }, [loading, phone]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {
@@ -160,32 +146,33 @@ export default function Home() {
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
           placeholder="mensagem..."
           disabled={loading}
+          autoFocus
           style={{
-            flex:        1,
-            background:  "#111",
-            border:      "1px solid #2a2a2a",
+            flex:         1,
+            background:   "#111",
+            border:       "1px solid #2a2a2a",
             borderRadius: "8px",
-            padding:     "10px 14px",
-            color:       "#e0e0e0",
-            fontSize:    "14px",
-            fontFamily:  "inherit",
-            outline:     "none",
+            padding:      "10px 14px",
+            color:        "#e0e0e0",
+            fontSize:     "14px",
+            fontFamily:   "inherit",
+            outline:      "none",
           }}
         />
         <button
           onClick={toggleRecording}
           title={isRecording ? "Parar gravação" : "Gravar áudio"}
           style={{
-            width:        "42px",
-            height:       "42px",
-            borderRadius: "8px",
-            border:       `1px solid ${isRecording ? "#550000" : "#2a2a2a"}`,
-            background:   isRecording ? "#1a0000" : "#111",
-            color:        isRecording ? "#ff4444" : "#666",
-            cursor:       "pointer",
-            fontSize:     "17px",
-            display:      "flex",
-            alignItems:   "center",
+            width:          "42px",
+            height:         "42px",
+            borderRadius:   "8px",
+            border:         `1px solid ${isRecording ? "#550000" : "#2a2a2a"}`,
+            background:     isRecording ? "#1a0000" : "#111",
+            color:          isRecording ? "#ff4444" : "#666",
+            cursor:         "pointer",
+            fontSize:       "17px",
+            display:        "flex",
+            alignItems:     "center",
             justifyContent: "center",
           }}
         >
@@ -195,16 +182,16 @@ export default function Home() {
           onClick={() => sendMessage(input)}
           disabled={loading || !input.trim()}
           style={{
-            width:        "42px",
-            height:       "42px",
-            borderRadius: "8px",
-            border:       "1px solid #2a2a2a",
-            background:   input.trim() && !loading ? "#003d1a" : "#111",
-            color:        input.trim() && !loading ? "#00e676" : "#333",
-            cursor:       input.trim() && !loading ? "pointer" : "default",
-            fontSize:     "18px",
-            display:      "flex",
-            alignItems:   "center",
+            width:          "42px",
+            height:         "42px",
+            borderRadius:   "8px",
+            border:         "1px solid #2a2a2a",
+            background:     input.trim() && !loading ? "#003d1a" : "#111",
+            color:          input.trim() && !loading ? "#00e676" : "#333",
+            cursor:         input.trim() && !loading ? "pointer" : "default",
+            fontSize:       "18px",
+            display:        "flex",
+            alignItems:     "center",
             justifyContent: "center",
           }}
         >
@@ -212,5 +199,19 @@ export default function Home() {
         </button>
       </div>
     </div>
+  );
+}
+
+function PageContent() {
+  const params = useSearchParams();
+  const phone  = params.get("phone") ?? "unknown";
+  return <EltonChat phone={phone} />;
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <PageContent />
+    </Suspense>
   );
 }

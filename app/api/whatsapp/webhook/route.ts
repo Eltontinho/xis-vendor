@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[WA] button: ${buttonId} → "${text}" de ${phone}`);
     try {
-      const result = await eltonAgent(text, phone, phone);
+      const result = await eltonAgent(text, phone);
       await sendMessage(phone, result.message);
     } catch (err) {
       console.error("[WA] button error:", err);
@@ -67,8 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // For WhatsApp, phone is always confirmed (comes from the platform)
-    const result = await eltonAgent(text, phone, phone);
+    const result = await eltonAgent(text, phone);
 
     if (result.message.includes("{{CLUBE_KRRO}}")) {
       const before = result.message.replace("{{CLUBE_KRRO}}", "").trim();
