@@ -20,42 +20,9 @@ interface CardData {
 
 function CardApresentacao({ onClose }: { onClose: () => void }) {
   return (
-    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
-      <div className="text-center mb-5">
-        <div className="text-3xl font-black text-white tracking-widest">K-RRO</div>
-        <p className="text-xs text-gray-400 mt-1">Plataforma de Mobilidade Urbana</p>
-      </div>
-      <div className="grid grid-cols-4 gap-2 mb-5">
-        {[
-          { cat: "GO",   icon: "🚗", desc: "Hatch/Sedã" },
-          { cat: "PLUS", icon: "⭐", desc: "Intermediário" },
-          { cat: "SUV",  icon: "🚙", desc: "Crossover" },
-          { cat: "EXEC", icon: "💎", desc: "Premium" },
-        ].map(({ cat, icon, desc }) => (
-          <div key={cat} className="bg-blue-900/40 border border-blue-700/30 rounded-xl p-2 text-center">
-            <div className="text-xl">{icon}</div>
-            <div className="text-xs font-bold text-blue-300 mt-1">{cat}</div>
-            <div className="text-[9px] text-gray-500 mt-0.5">{desc}</div>
-          </div>
-        ))}
-      </div>
-      <div className="space-y-2.5 border-t border-gray-700 pt-4">
-        {[
-          { icon: "🔄", label: "Vai e Volta", desc: "Corridas de ida e volta" },
-          { icon: "⭐", label: "Motorista Favorito", desc: "Seus clientes te escolhem" },
-          { icon: "👤", label: "Suporte Humano", desc: "Gente real, sem robô" },
-        ].map(({ icon, label, desc }) => (
-          <div key={label} className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm shrink-0">{icon}</div>
-            <div>
-              <p className="text-sm font-semibold text-white">{label}</p>
-              <p className="text-xs text-gray-400">{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-center text-xs text-gray-600 mt-4">App lança 15/06/2026</p>
+    <div className="relative">
+      <button onClick={onClose} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-lg z-10">×</button>
+      <img src="/cardk-rrofundopreto.png" alt="K-RRO" className="max-w-sm w-full rounded-2xl" />
     </div>
   );
 }
@@ -105,44 +72,9 @@ function CardComparativo({ data, onClose }: { data?: CardData; onClose: () => vo
 
 function CardClube({ onClose }: { onClose: () => void }) {
   return (
-    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
-      <div className="text-center mb-5">
-        <h2 className="text-lg font-bold text-white">Clube K-RRO</h2>
-        <p className="text-xs text-yellow-500 font-semibold mt-0.5">Fundadores — Lote 1</p>
-      </div>
-
-      <div className="space-y-2.5 mb-5">
-        {[
-          { icon: "💰", label: "94% por corrida",         desc: "A maior taxa do mercado — Platina" },
-          { icon: "⚡", label: "Pagamento diário via Pix", desc: "Sem esperar semana ou mês" },
-          { icon: "👤", label: "Suporte humano 24h",       desc: "Gente real, resposta em minutos" },
-          { icon: "🛡️", label: "Seguro por passageiro",    desc: "R$ 100 mil em cobertura" },
-        ].map(({ icon, label, desc }) => (
-          <div key={label} className="flex items-center gap-3 bg-gray-800 rounded-xl p-3">
-            <div className="text-xl shrink-0">{icon}</div>
-            <div>
-              <p className="text-sm font-semibold text-white">{label}</p>
-              <p className="text-xs text-gray-400">{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { name: "Platina", rate: "94%", price: "R$ 397", highlight: true },
-          { name: "Ouro",    rate: "92%", price: "R$ 347", highlight: false },
-          { name: "Prata",   rate: "90%", price: "R$ 297", highlight: false },
-        ].map(({ name, rate, price, highlight }) => (
-          <div key={name} className={`rounded-xl p-3 text-center border ${highlight ? "border-yellow-500 bg-yellow-900/20" : "border-gray-700 bg-gray-800"}`}>
-            <p className={`text-xs font-bold ${highlight ? "text-yellow-400" : "text-gray-400"}`}>{name}</p>
-            <p className="text-lg font-black text-white">{rate}</p>
-            <p className="text-xs text-gray-400">{price}/ano</p>
-          </div>
-        ))}
-      </div>
-      <p className="text-center text-xs text-gray-600 mt-3">Encerra 01/06/2026 · Parcelado em até 6×</p>
+    <div className="relative">
+      <button onClick={onClose} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-lg z-10">×</button>
+      <img src="/clube-todos.png" alt="Clube K-RRO" className="max-w-sm w-full rounded-2xl" />
     </div>
   );
 }
@@ -178,6 +110,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [activeCard, setActiveCard]   = useState<{ type: CardType; data?: CardData } | null>(null);
+  const [showSplash, setShowSplash]   = useState(true);
 
   const messagesEndRef   = useRef<HTMLDivElement>(null);
   const inputRef         = useRef<HTMLInputElement>(null);
@@ -305,6 +238,20 @@ export default function Home() {
       event.target.value = "";
     }
   };
+
+  if (showSplash) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <button
+          onClick={() => setShowSplash(false)}
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10"
+        >
+          ×
+        </button>
+        <img src="/krro-apresentacao.png" alt="K-RRO" className="w-full h-full object-contain" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
