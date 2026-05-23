@@ -1,14 +1,26 @@
-import { NextRequest } from "next/server";
-import { validateSecret } from "@/lib/elton/security";
-import { getVagasDisponiveis } from "@/lib/elton/db";
+import { createClient } from "@supabase/supabase-js";
 
-export async function GET(req: NextRequest) {
-  if (!validateSecret(req)) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const TOTAL_LOTE1 = 200;
+
+export async function GET() {
+  const { count, error } = await supabase
+    .from("lead_states")
+    .select("*", { count: "exact", head: true })
+    .eq("stage", "convertido");
+
+  if (error) {
+    return Response.json({ vagas: 0 }, { status: 500 });
   }
 
-  const vagas = await getVagasDisponiveis(1);
+  const ocupadas = count ?? 0;
+  const vagas = Math.max(TOTAL_LOTE1 - ocupadas, 0);
+
   return Response.json({ vagas }, {
-    headers: { "Cache-Control": "public, max-age=30" },
+    headers: { "Cache-Control": "no-store" },
   });
 }
