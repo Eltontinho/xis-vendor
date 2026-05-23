@@ -100,8 +100,25 @@ export async function POST(req: NextRequest) {
     const maxTokens = image?.data ? 2048 : MAX_TOKENS;
     const response = await callClaude(messages, systemPrompt, maxTokens);
 
-    console.log("[/api/elton] Success, response length:", response.length);
-    return NextResponse.json({ message: response });
+    // Parse and strip card tags from the response
+    const cardTagRegex = /\[CARD_([A-Z_]+)(?::([^\]]+))?\]/;
+    const cardMatch = response.match(cardTagRegex);
+    const cleanMessage = response.replace(/\[CARD_[^\]]*\]/g, "").trim();
+
+    let card: { type: string; data: Record<string, number> } | null = null;
+    if (cardMatch) {
+      const cardData: Record<string, number> = {};
+      if (cardMatch[2]) {
+        cardMatch[2].split("|").forEach(p => {
+          const [k, v] = p.split("=");
+          if (k && v) cardData[k.trim()] = parseFloat(v.trim().replace(",", "."));
+        });
+      }
+      card = { type: cardMatch[1], data: cardData };
+    }
+
+    console.log("[/api/elton] Success, response length:", cleanMessage.length, card ? `card: ${card.type}` : "");
+    return NextResponse.json({ message: cleanMessage, card });
 
   } catch (error) {
     console.error("=== ELTON ERROR DEBUG ===");

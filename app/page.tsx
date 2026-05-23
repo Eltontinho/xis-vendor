@@ -10,22 +10,178 @@ interface Message {
   image?: string;
 }
 
+type CardType = "apresentacao" | "comparativo" | "clube" | "pagamento";
+interface CardData {
+  ganhoAtual?: number;
+  ganhoKRRO?: number;
+}
+
+// ─── Card Components ──────────────────────────────────────────────────────────
+
+function CardApresentacao({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
+      <div className="text-center mb-5">
+        <div className="text-3xl font-black text-white tracking-widest">K-RRO</div>
+        <p className="text-xs text-gray-400 mt-1">Plataforma de Mobilidade Urbana</p>
+      </div>
+      <div className="grid grid-cols-4 gap-2 mb-5">
+        {[
+          { cat: "GO",   icon: "🚗", desc: "Hatch/Sedã" },
+          { cat: "PLUS", icon: "⭐", desc: "Intermediário" },
+          { cat: "SUV",  icon: "🚙", desc: "Crossover" },
+          { cat: "EXEC", icon: "💎", desc: "Premium" },
+        ].map(({ cat, icon, desc }) => (
+          <div key={cat} className="bg-blue-900/40 border border-blue-700/30 rounded-xl p-2 text-center">
+            <div className="text-xl">{icon}</div>
+            <div className="text-xs font-bold text-blue-300 mt-1">{cat}</div>
+            <div className="text-[9px] text-gray-500 mt-0.5">{desc}</div>
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2.5 border-t border-gray-700 pt-4">
+        {[
+          { icon: "🔄", label: "Vai e Volta", desc: "Corridas de ida e volta" },
+          { icon: "⭐", label: "Motorista Favorito", desc: "Seus clientes te escolhem" },
+          { icon: "👤", label: "Suporte Humano", desc: "Gente real, sem robô" },
+        ].map(({ icon, label, desc }) => (
+          <div key={label} className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm shrink-0">{icon}</div>
+            <div>
+              <p className="text-sm font-semibold text-white">{label}</p>
+              <p className="text-xs text-gray-400">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-xs text-gray-600 mt-4">App lança 15/06/2026</p>
+    </div>
+  );
+}
+
+function CardComparativo({ data, onClose }: { data?: CardData; onClose: () => void }) {
+  const atual = data?.ganhoAtual ?? 0;
+  const krro  = data?.ganhoKRRO  ?? 0;
+  const max   = Math.max(atual, krro, 1);
+  const extra = krro - atual;
+  const fmt   = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  return (
+    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
+      <h2 className="text-lg font-bold text-white mb-1">Conta de Padaria</h2>
+      <p className="text-xs text-gray-400 mb-5">Comparativo diário — mesma rota, taxa diferente</p>
+
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between text-sm mb-1.5">
+            <span className="text-gray-400">Plataforma atual</span>
+            <span className="font-bold text-red-400">{fmt(atual)}/dia</span>
+          </div>
+          <div className="h-8 bg-gray-800 rounded-lg overflow-hidden">
+            <div className="h-full bg-red-500/70 rounded-lg transition-all duration-700" style={{ width: `${(atual / max) * 100}%` }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-sm mb-1.5">
+            <span className="text-gray-400">K-RRO Platina (94%)</span>
+            <span className="font-bold text-green-400">{fmt(krro)}/dia</span>
+          </div>
+          <div className="h-8 bg-gray-800 rounded-lg overflow-hidden">
+            <div className="h-full bg-green-500/80 rounded-lg transition-all duration-700" style={{ width: `${(krro / max) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 bg-green-900/30 border border-green-700/40 rounded-xl p-4 text-center">
+        <p className="text-xs text-gray-400 mb-1">Diferença no seu bolso</p>
+        <p className="text-2xl font-black text-green-400">{fmt(extra)}<span className="text-sm font-normal">/dia</span></p>
+        <p className="text-sm text-green-300 mt-1">{fmt(extra * 20)}/mês · {fmt(extra * 240)}/ano</p>
+      </div>
+    </div>
+  );
+}
+
+function CardClube({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
+      <div className="text-center mb-5">
+        <h2 className="text-lg font-bold text-white">Clube K-RRO</h2>
+        <p className="text-xs text-yellow-500 font-semibold mt-0.5">Fundadores — Lote 1</p>
+      </div>
+
+      <div className="space-y-2.5 mb-5">
+        {[
+          { icon: "💰", label: "94% por corrida",         desc: "A maior taxa do mercado — Platina" },
+          { icon: "⚡", label: "Pagamento diário via Pix", desc: "Sem esperar semana ou mês" },
+          { icon: "👤", label: "Suporte humano 24h",       desc: "Gente real, resposta em minutos" },
+          { icon: "🛡️", label: "Seguro por passageiro",    desc: "R$ 100 mil em cobertura" },
+        ].map(({ icon, label, desc }) => (
+          <div key={label} className="flex items-center gap-3 bg-gray-800 rounded-xl p-3">
+            <div className="text-xl shrink-0">{icon}</div>
+            <div>
+              <p className="text-sm font-semibold text-white">{label}</p>
+              <p className="text-xs text-gray-400">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { name: "Platina", rate: "94%", price: "R$ 397", highlight: true },
+          { name: "Ouro",    rate: "92%", price: "R$ 347", highlight: false },
+          { name: "Prata",   rate: "90%", price: "R$ 297", highlight: false },
+        ].map(({ name, rate, price, highlight }) => (
+          <div key={name} className={`rounded-xl p-3 text-center border ${highlight ? "border-yellow-500 bg-yellow-900/20" : "border-gray-700 bg-gray-800"}`}>
+            <p className={`text-xs font-bold ${highlight ? "text-yellow-400" : "text-gray-400"}`}>{name}</p>
+            <p className="text-lg font-black text-white">{rate}</p>
+            <p className="text-xs text-gray-400">{price}/ano</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-xs text-gray-600 mt-3">Encerra 01/06/2026 · Parcelado em até 6×</p>
+    </div>
+  );
+}
+
+function CardPagamento({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+      <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center text-lg">×</button>
+      <div className="text-4xl mb-3">🔐</div>
+      <h2 className="text-lg font-bold text-white mb-1">Garantir Vaga de Fundador</h2>
+      <p className="text-xs text-gray-400 mb-5">Seu consultor vai enviar o link exclusivo agora mesmo.</p>
+      <div className="bg-green-900/30 border border-green-700/40 rounded-xl p-4 mb-4">
+        <p className="text-xs text-gray-400">Aceitamos</p>
+        <p className="text-sm font-semibold text-white mt-1">Pix · Cartão de crédito (6×) · Débito</p>
+      </div>
+      <p className="text-xs text-gray-600">Acesso liberado em até 24h após confirmação do pagamento.</p>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "welcome",
-      role: "elton",
-      content: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?",
+      id:        "welcome",
+      role:      "elton",
+      content:   "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?",
       timestamp: Date.now(),
     },
   ]);
-  const [input, setInput] = useState("");
+  const [input, setInput]         = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [showCardModal, setShowCardModal] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeCard, setActiveCard]   = useState<{ type: CardType; data?: CardData } | null>(null);
+
+  const messagesEndRef   = useRef<HTMLDivElement>(null);
+  const inputRef         = useRef<HTMLInputElement>(null);
+  const fileInputRef     = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
@@ -33,22 +189,20 @@ export default function Home() {
   }, [messages]);
 
   useEffect(() => {
-    if (messages.length > 1) {
-      inputRef.current?.focus();
-    }
+    if (messages.length > 1) inputRef.current?.focus();
   }, []);
 
   const handleSendText = async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: textToSend,
+      id:        Date.now().toString(),
+      role:      "user",
+      content:   textToSend,
       timestamp: Date.now(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
@@ -58,15 +212,14 @@ export default function Home() {
 
     try {
       const response = await fetch("/api/elton", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           message: textToSend,
-          // elton → assistant: obrigatório para a API do Claude não rejeitar com 400
           history: messages
-            .filter((m) => m.role !== "system")
-            .map((m) => ({
-              role: m.role === "elton" ? "assistant" : "user",
+            .filter(m => m.role !== "system")
+            .map(m => ({
+              role:    m.role === "elton" ? "assistant" : "user",
               content: m.content,
             })),
         }),
@@ -75,31 +228,25 @@ export default function Home() {
       const data = await response.json();
 
       if (data.message) {
-        const eltonMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "elton",
-          content: data.message,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, eltonMsg]);
-
-        if (
-          data.message.includes("Card:") ||
-          data.message.includes("card") ||
-          data.message.includes("Clube K-RRO")
-        ) {
-          setTimeout(() => setShowCardModal(true), 500);
-        }
+        setMessages(prev => [
+          ...prev,
+          { id: (Date.now() + 1).toString(), role: "elton", content: data.message, timestamp: Date.now() },
+        ]);
       }
-    } catch (error) {
-      console.error("Erro:", error);
-      const errMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "elton",
-        content: "Problema na conexão. Tente novamente.",
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
+
+      // Card trigger
+      if (data.card?.type) {
+        const cardData: CardData = {
+          ganhoAtual: data.card.data?.ATUAL,
+          ganhoKRRO:  data.card.data?.KRRO,
+        };
+        setTimeout(() => setActiveCard({ type: data.card.type.toLowerCase() as CardType, data: cardData }), 600);
+      }
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: "elton", content: "Problema na conexão. Tente novamente.", timestamp: Date.now() },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -107,17 +254,17 @@ export default function Home() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream      = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: "audio/webm" });
         setIsLoading(true);
         const formData = new FormData();
         formData.append("audio", blob, "recording.webm");
         try {
-          const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+          const res  = await fetch("/api/transcribe", { method: "POST", body: formData });
           const data = await res.json();
           if (data.transcription) await handleSendText(data.transcription);
           else alert("Não consegui entender o áudio.");
@@ -149,15 +296,9 @@ export default function Home() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        setMessages((prev) => [
+        setMessages(prev => [
           ...prev,
-          {
-            id: Date.now().toString(),
-            role: "user",
-            content: "📷 Foto enviada",
-            timestamp: Date.now(),
-            image: base64,
-          },
+          { id: Date.now().toString(), role: "user", content: "📷 Foto enviada", timestamp: Date.now(), image: base64 },
         ]);
       };
       reader.readAsDataURL(file);
@@ -174,150 +315,100 @@ export default function Home() {
           <p className="text-xs text-gray-400">Consultor K-RRO</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-green-500 rounded-full" />
           <span className="text-xs text-green-500">online</span>
         </div>
       </div>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                msg.role === "user"
-                  ? "bg-blue-600 rounded-tr-none"
-                  : "bg-gray-800 rounded-tl-none"
-              }`}
-            >
+        {messages.map(msg => (
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+              msg.role === "user" ? "bg-blue-600 rounded-tr-none" : "bg-gray-800 rounded-tl-none"
+            }`}>
               {msg.image && (
                 <div className="mb-2">
-                  <img
-                    src={msg.image}
-                    alt="Upload"
-                    className="max-w-full rounded-lg max-h-48 object-cover"
-                  />
+                  <img src={msg.image} alt="Upload" className="max-w-full rounded-lg max-h-48 object-cover" />
                 </div>
               )}
               <p className="whitespace-pre-wrap">{msg.content}</p>
               <span className="text-[10px] text-gray-400 block mt-1 text-right">
-                {new Date(msg.timestamp).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
           </div>
         ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-gray-800 rounded-2xl rounded-tl-none px-4 py-3">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 p-3 pb-6 z-50">
         <div className="flex items-center gap-2 max-w-4xl mx-auto">
-          {/* Camera Button */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={handleFileUpload}
-          />
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-11 h-11 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 hover:bg-gray-600 transition"
-            aria-label="Enviar foto"
+            className="w-11 h-11 rounded-full bg-gray-700 flex items-center justify-center text-gray-300 hover:bg-gray-600 shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            📷
           </button>
-
-          {/* Text Input */}
           <input
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendText(input)}
-            placeholder="Digite sua mensagem..."
-            disabled={isLoading || isRecording}
-            className="flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base min-w-0"
-          />
-
-          {/* Send Button */}
-          <button
-            onClick={() => handleSendText(input)}
-            disabled={!input.trim() || isLoading || isRecording}
-            className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:bg-blue-500 transition"
-            aria-label="Enviar mensagem"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </button>
-
-          {/* Mic Button */}
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendText(input); } }}
+            placeholder="Digite uma mensagem..."
             disabled={isLoading}
-            aria-label={isRecording ? "Parar gravação" : "Gravar áudio"}
-            className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition disabled:opacity-50 ${
-              isRecording ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </button>
+            className="flex-1 bg-gray-800 rounded-full px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none border border-gray-700 focus:border-blue-500"
+          />
+          {input.trim() ? (
+            <button
+              onClick={() => handleSendText(input)}
+              disabled={isLoading}
+              className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-500 disabled:opacity-50 shrink-0"
+            >
+              <svg className="w-5 h-5 text-white rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isLoading}
+              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
+                isRecording ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"
+              }`}
+            >
+              🎤
+            </button>
+          )}
         </div>
       </div>
 
       {/* Card Modal */}
-      {showCardModal && (
-        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
-          <button
-            onClick={() => setShowCardModal(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700"
-          >
-            ×
-          </button>
-          <div className="bg-gray-900 rounded-xl p-6 max-w-lg w-full">
-            <h2 className="text-xl font-bold mb-4 text-center">Clube K-RRO</h2>
-            <div className="bg-gray-800 rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">🚗</div>
-                <div>
-                  <p className="font-semibold">Categorias</p>
-                  <p className="text-sm text-gray-400">GO • PLUS • SUV • EXEC • CARE</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">⭐</div>
-                <div>
-                  <p className="font-semibold">Funcionalidades</p>
-                  <p className="text-sm text-gray-400">Corrida Avulsa • Vai e Volta • Motorista Favorito</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">💰</div>
-                <div>
-                  <p className="font-semibold">Pagamento</p>
-                  <p className="text-sm text-gray-400">Diário via Pix • Todo dia às 6h</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">📊</div>
-                <div>
-                  <p className="font-semibold">Taxas</p>
-                  <p className="text-sm text-gray-400">Clube K-RRO: até 94% para o motorista</p>
-                </div>
-              </div>
-            </div>
+      {activeCard && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setActiveCard(null)}
+        >
+          <div className="relative" onClick={e => e.stopPropagation()}>
+            {activeCard.type === "apresentacao" && <CardApresentacao onClose={() => setActiveCard(null)} />}
+            {activeCard.type === "comparativo"  && <CardComparativo  data={activeCard.data} onClose={() => setActiveCard(null)} />}
+            {activeCard.type === "clube"         && <CardClube        onClose={() => setActiveCard(null)} />}
+            {activeCard.type === "pagamento"     && <CardPagamento    onClose={() => setActiveCard(null)} />}
           </div>
         </div>
       )}
