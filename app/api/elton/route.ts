@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEltonSystemPrompt } from "@/lib/elton/agent";
+import { getEltonSystemPrompt } from "@/lib/elton/system";
 
 export const maxDuration = 60;
 
