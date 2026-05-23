@@ -26,7 +26,6 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,7 +61,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: textToSend,
-          // elton → assistant para compatibilidade com a API do Claude
+          // elton → assistant: obrigatório para a API do Claude não rejeitar com 400
           history: messages
             .filter((m) => m.role !== "system")
             .map((m) => ({
@@ -98,48 +97,6 @@ export default function Home() {
       setMessages((prev) => [...prev, errMsg]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // --- ÁUDIO ---
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        setIsLoading(true);
-        try {
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
-          const res = await fetch("/api/transcribe", { method: "POST", body: formData });
-          const data = await res.json();
-          if (data.transcription) {
-            await handleSendText(data.transcription);
-          } else {
-            alert("Não consegui entender o áudio.");
-          }
-        } catch {
-          alert("Erro ao transcrever áudio.");
-        } finally {
-          setIsLoading(false);
-          setIsRecording(false);
-        }
-      };
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
-    } catch {
-      alert("Permita o microfone para enviar áudios.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
     }
   };
 
@@ -212,31 +169,13 @@ export default function Home() {
             </div>
           </div>
         ))}
-
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 rounded-2xl rounded-tl-none px-4 py-3">
-              <div className="flex gap-1">
-                {[0, 150, 300].map((d) => (
-                  <span
-                    key={d}
-                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-                    style={{ animationDelay: `${d}ms` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 p-3 pb-6 z-50">
         <div className="flex items-center gap-2 max-w-4xl mx-auto">
-
-          {/* Camera */}
+          {/* Camera Button */}
           <input
             type="file"
             ref={fileInputRef}
@@ -267,34 +206,17 @@ export default function Home() {
             className="flex-1 bg-gray-800 text-white rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-base min-w-0"
           />
 
-          {/* Send / Mic */}
-          {input.trim() ? (
-            <button
-              onClick={() => handleSendText(input)}
-              disabled={isLoading || isRecording}
-              className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 disabled:opacity-50 hover:bg-blue-500 transition"
-              aria-label="Enviar mensagem"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
-          ) : (
-            <button
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isLoading}
-              aria-label={isRecording ? "Parar gravação" : "Gravar áudio"}
-              className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition ${
-                isRecording
-                  ? "bg-red-600 animate-pulse"
-                  : "bg-gray-700 hover:bg-gray-600"
-              } disabled:opacity-50`}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
-          )}
+          {/* Send Button */}
+          <button
+            onClick={() => handleSendText(input)}
+            disabled={!input.trim() || isLoading || isRecording}
+            className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:bg-blue-500 transition"
+            aria-label="Enviar mensagem"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -310,22 +232,34 @@ export default function Home() {
           <div className="bg-gray-900 rounded-xl p-6 max-w-lg w-full">
             <h2 className="text-xl font-bold mb-4 text-center">Clube K-RRO</h2>
             <div className="bg-gray-800 rounded-lg p-4 space-y-3">
-              {[
-                { icon: "🚗", title: "Categorias", sub: "GO • PLUS • SUV • EXEC • CARE" },
-                { icon: "⭐", title: "Funcionalidades", sub: "Corrida Avulsa • Vai e Volta • Motorista Favorito" },
-                { icon: "💰", title: "Pagamento", sub: "Diário via Pix • Todo dia às 6h" },
-                { icon: "📊", title: "Taxas", sub: "Clube K-RRO: até 94% para o motorista" },
-              ].map(({ icon, title, sub }) => (
-                <div key={title} className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                    {icon}
-                  </div>
-                  <div>
-                    <p className="font-semibold">{title}</p>
-                    <p className="text-sm text-gray-400">{sub}</p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">🚗</div>
+                <div>
+                  <p className="font-semibold">Categorias</p>
+                  <p className="text-sm text-gray-400">GO • PLUS • SUV • EXEC • CARE</p>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">⭐</div>
+                <div>
+                  <p className="font-semibold">Funcionalidades</p>
+                  <p className="text-sm text-gray-400">Corrida Avulsa • Vai e Volta • Motorista Favorito</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">💰</div>
+                <div>
+                  <p className="font-semibold">Pagamento</p>
+                  <p className="text-sm text-gray-400">Diário via Pix • Todo dia às 6h</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">📊</div>
+                <div>
+                  <p className="font-semibold">Taxas</p>
+                  <p className="text-sm text-gray-400">Clube K-RRO: até 94% para o motorista</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
