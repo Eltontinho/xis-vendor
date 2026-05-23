@@ -3,7 +3,7 @@ import { getEltonSystemPrompt } from "@/lib/elton/system";
 
 export const maxDuration = 60;
 
-const MODEL = "claude-sonnet-4-5";
+const MODEL = "claude-3-5-sonnet-20241022";
 const MAX_TOKENS = 1024;
 
 type ClaudeMessage = {
@@ -15,8 +15,8 @@ function formatHistory(
   history: Array<{ role: string; content: string }>
 ): ClaudeMessage[] {
   return (history || [])
-    .filter(m => m.role === "user" || m.role === "assistant")
-    .map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+    .filter(m => m.role === "user" || m.role === "assistant" || m.role === "elton")
+    .map(m => ({ role: (m.role === "elton" ? "assistant" : m.role) as "user" | "assistant", content: m.content }));
 }
 
 async function callClaude(messages: ClaudeMessage[], systemPrompt: string, maxTokens = MAX_TOKENS): Promise<string> {
@@ -79,13 +79,14 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userContent: any[] = [];
 
-    if (image?.data) {
+    if (image && typeof image === "string") {
+      const base64Data = image.includes(",") ? image.split(",")[1] : image;
       userContent.push({
         type: "image",
         source: {
-          type: "base64",
-          media_type: image.mimeType || "image/jpeg",
-          data: image.data,
+          type:       "base64",
+          media_type: "image/jpeg",
+          data:       base64Data,
         },
       });
     }
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
     const newMessage = { role: "user" as const, content: userContent };
     const messages: ClaudeMessage[] = [...formattedHistory, newMessage];
     // Visão usa mais tokens para análise detalhada
-    const maxTokens = image?.data ? 2048 : MAX_TOKENS;
+    const maxTokens = (image && typeof image === "string") ? 2048 : MAX_TOKENS;
     const response = await callClaude(messages, systemPrompt, maxTokens);
 
     // Parse and strip card tags from the response

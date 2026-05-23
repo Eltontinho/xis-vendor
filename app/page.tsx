@@ -223,20 +223,53 @@ export default function Home() {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
+  const sendToEltonWithImage = async (text: string, base64Image: string) => {
+    setIsLoading(true);
+    try {
+      const res  = await fetch("/api/elton", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          message: text,
+          image:   base64Image,
+          history: messages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      if (data.message) {
         setMessages(prev => [
           ...prev,
-          { id: Date.now().toString(), role: "user", content: "📷 Foto enviada", timestamp: Date.now(), image: base64 },
+          { id: (Date.now() + 1).toString(), role: "elton", content: data.message, timestamp: Date.now() },
         ]);
-      };
-      reader.readAsDataURL(file);
-      event.target.value = "";
+      }
+      if (data.card?.type) {
+        const cardData: CardData = { ganhoAtual: data.card.data?.ATUAL, ganhoKRRO: data.card.data?.KRRO };
+        setTimeout(() => setActiveCard({ type: data.card.type.toLowerCase() as CardType, data: cardData }), 600);
+      }
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: "elton", content: "Problema na conexão. Tente novamente.", timestamp: Date.now() },
+      ]);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now().toString(), role: "user", content: "📷 Analise esta imagem:", timestamp: Date.now(), image: base64 },
+      ]);
+      sendToEltonWithImage("Analise esta imagem e me diga o que você vê.", base64);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
   };
 
   if (showSplash) {
