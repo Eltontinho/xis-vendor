@@ -1,144 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEltonSystemPrompt } from "@/lib/elton/system";
 
 export const maxDuration = 60;
 
-const MODEL = "claude-3-5-sonnet-20241022";
-const MAX_TOKENS = 1024;
-
-type ClaudeMessage = {
-  role: "user" | "assistant";
-  content: string | unknown[];
-};
-
-function formatHistory(
-  history: Array<{ role: string; content: string }>
-): ClaudeMessage[] {
-  return (history || [])
-    .filter(m => m.role === "user" || m.role === "assistant" || m.role === "elton")
-    .map(m => ({ role: (m.role === "elton" ? "assistant" : m.role) as "user" | "assistant", content: m.content }));
-}
-
-async function callClaude(messages: ClaudeMessage[], systemPrompt: string, maxTokens = MAX_TOKENS): Promise<string> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      temperature: 0.3,
-      system: systemPrompt,
-      messages,
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text().catch(() => "");
-    throw new Error(`Claude API ${response.status}: ${err}`);
-  }
-
-  const data = await response.json();
-  const content = Array.isArray(data.content)
-    ? data.content.map((b: { text?: string }) => b.text || "").join("")
-    : data.content || "";
-  return content.trim();
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { message, history, conversationId, vagasLote1, image } = await req.json();
+    const { message, history } = await req.json();
 
-    console.log("[/api/elton] Request received:", {
-      hasMessage: !!message,
-      hasHistory: Array.isArray(history),
-      hasImage: !!image,
-      vagasLote1,
-      conversationId: conversationId?.slice(0, 8) + "...",
+    const formattedHistory = (history as Array<{ role: string; content: string }>).map((msg) => ({
+      role: msg.role === "elton" ? "assistant" : "user",
+      content: [{ type: "text", text: msg.content }],
+    }));
+
+    const { getEltonSystemPrompt } = await import("@/lib/elton/system");
+    const systemPrompt = getEltonSystemPrompt(199);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        temperature: 0.7,
+        system: systemPrompt,
+        messages: formattedHistory,
+      }),
     });
 
-    console.log("[/api/elton] Env check:", {
-      hasClaudeKey: !!process.env.ANTHROPIC_API_KEY,
-      keyPrefix: process.env.ANTHROPIC_API_KEY?.slice(0, 10) + "...",
-      keyLength: process.env.ANTHROPIC_API_KEY?.length,
-      nodeEnv: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL_ENV,
-    });
-
-    if (!message || typeof message !== "string") {
-      return NextResponse.json({ error: "Mensagem inválida" }, { status: 400 });
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Anthropic Error:", errorData);
+      return NextResponse.json(
+        { message: `Erro na API: ${response.status}. Verifique a chave ANTHROPIC_API_KEY no Vercel.` },
+        { status: 500 }
+      );
     }
 
-    const systemPrompt = getEltonSystemPrompt(vagasLote1 || 199);
-    const formattedHistory = formatHistory(history || []);
-
-    // Constrói conteúdo da mensagem do usuário (texto + imagem opcional)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userContent: any[] = [];
-
-    if (image && typeof image === "string") {
-      const base64Data = image.includes(",") ? image.split(",")[1] : image;
-      userContent.push({
-        type: "image",
-        source: {
-          type:       "base64",
-          media_type: "image/jpeg",
-          data:       base64Data,
-        },
-      });
-    }
-
-    if (message) {
-      userContent.push({ type: "text", text: message });
-    }
-
-    const newMessage = { role: "user" as const, content: userContent };
-    const messages: ClaudeMessage[] = [...formattedHistory, newMessage];
-    // Visão usa mais tokens para análise detalhada
-    const maxTokens = (image && typeof image === "string") ? 2048 : MAX_TOKENS;
-    const response = await callClaude(messages, systemPrompt, maxTokens);
-
-    // Parse and strip card tags from the response
-    const cardTagRegex = /\[CARD_([A-Z_]+)(?::([^\]]+))?\]/;
-    const cardMatch = response.match(cardTagRegex);
-    const cleanMessage = response.replace(/\[CARD_[^\]]*\]/g, "").trim();
-
-    let card: { type: string; data: Record<string, number> } | null = null;
-    if (cardMatch) {
-      const cardData: Record<string, number> = {};
-      if (cardMatch[2]) {
-        cardMatch[2].split("|").forEach(p => {
-          const [k, v] = p.split("=");
-          if (k && v) cardData[k.trim()] = parseFloat(v.trim().replace(",", "."));
-        });
-      }
-      card = { type: cardMatch[1], data: cardData };
-    }
-
-    console.log("[/api/elton] Success, response length:", cleanMessage.length, card ? `card: ${card.type}` : "");
-    return NextResponse.json({ message: cleanMessage, card });
+    const data = await response.json();
+    const reply = data.content[0].text;
+    return NextResponse.json({ message: reply });
 
   } catch (error) {
-    console.error("=== ELTON ERROR DEBUG ===");
-    console.error("Error name:", error instanceof Error ? error.name : "Unknown");
-    console.error("Error message:", error instanceof Error ? error.message : String(error));
-    console.error("Error stack:", error instanceof Error ? error.stack : "No stack");
-    console.error("Env ANTHROPIC_API_KEY exists:", !!process.env.ANTHROPIC_API_KEY);
-    console.error("Env key length:", process.env.ANTHROPIC_API_KEY?.length);
-    console.error("Env key prefix:", process.env.ANTHROPIC_API_KEY?.slice(0, 10) + "...");
-    console.error("Node env:", process.env.NODE_ENV);
-    console.error("Vercel env:", process.env.VERCEL_ENV);
-    console.error("=== END DEBUG ===");
-
-    return NextResponse.json(
-      {
-        message: "Problema técnico. Detalhes no log.",
-        debug: process.env.NODE_ENV === "development" ? String(error) : undefined,
-      },
-      { status: 500 }
-    );
+    console.error("Server Error:", error);
+    return NextResponse.json({ message: "Erro interno do servidor." }, { status: 500 });
   }
 }
