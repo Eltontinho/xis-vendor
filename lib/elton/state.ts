@@ -8,13 +8,13 @@ export enum LeadStage {
 
 export type Intent = "buy" | "objection" | "neutral";
 
-const BUY_SIGNALS       = ["quero", "entrar", "comprar", "link", "fechar", "sim", "pode mandar", "topo", "bora"];
-const OBJECTION_SIGNALS = ["não", "nao", "depois", "caro", "medo", "duvida", "dúvida", "desconfio", "golpe", "fraude"];
+const BUY_SIGNALS       = ["quero","entrar","comprar","link","fechar","sim","pode mandar","topo","bora","confirmo","fecha"];
+const OBJECTION_SIGNALS = ["não","nao","depois","caro","medo","duvida","dúvida","desconfio","golpe","fraude","mentira","furada"];
 
 export function detectIntent(message: string): Intent {
   const msg = message.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  if (BUY_SIGNALS.some((w) => msg.includes(w)))       return "buy";
-  if (OBJECTION_SIGNALS.some((w) => msg.includes(w))) return "objection";
+  if (BUY_SIGNALS.some(w => msg.includes(w)))       return "buy";
+  if (OBJECTION_SIGNALS.some(w => msg.includes(w))) return "objection";
   return "neutral";
 }
 
