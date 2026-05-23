@@ -27,10 +27,11 @@ export async function POST(req: NextRequest) {
     if (data.text) {
       return NextResponse.json({ transcription: data.text });
     } else {
+      console.error("Erro Whisper:", data);
       return NextResponse.json({ error: "Falha na transcrição" }, { status: 500 });
     }
   } catch (error) {
-    console.error("Transcription Error:", error);
+    console.error("Erro interno transcrição:", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }

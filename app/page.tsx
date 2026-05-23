@@ -190,7 +190,7 @@ export default function Home() {
       const stream      = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: "audio/webm" });
         setIsLoading(true);
@@ -369,10 +369,10 @@ export default function Home() {
               onClick={isRecording ? stopRecording : startRecording}
               disabled={isLoading}
               className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
-                isRecording ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"
+                isRecording ? "bg-red-600 animate-pulse" : "bg-blue-600 hover:bg-blue-500"
               }`}
             >
-              🎤
+              {isRecording ? "⏹️" : "🎤"}
             </button>
           )}
         </div>
