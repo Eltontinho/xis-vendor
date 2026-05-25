@@ -75,8 +75,8 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
-      <div className="flex flex-col h-screen max-w-sm mx-auto w-full bg-black">
+    <div className="flex flex-col h-screen bg-black">
+      <div className="flex flex-col h-full w-full max-w-[430px] mx-auto bg-black relative text-white">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
         <h1 className="font-bold">Elton</h1>
@@ -86,7 +86,7 @@ export default function Home() {
       {/* Chat */}
       <div className="relative flex-1 overflow-y-auto">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <img src="/logo-krro.png" alt="" className="w-2/5 opacity-25 select-none" />
+          <img src="/logo-krro.png" alt="" className="w-4/5 opacity-50 select-none" />
         </div>
         <div className="relative p-4 space-y-4 pb-24">
         {messages.map((m) => (
