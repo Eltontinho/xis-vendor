@@ -9,6 +9,24 @@ interface Message {
   image?: string;
 }
 
+function CardApresentacao({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="relative">
+      <button onClick={onClose} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-lg z-10">×</button>
+      <img src="/cardk-rrofundopreto.png" className="w-full max-w-sm rounded-2xl" />
+    </div>
+  );
+}
+
+function CardClube({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="relative">
+      <button onClick={onClose} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-lg z-10">×</button>
+      <img src="/clube-todos.png" className="w-full max-w-sm rounded-2xl" />
+    </div>
+  );
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "1", role: "elton", content: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?", timestamp: Date.now() },
