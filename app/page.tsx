@@ -84,11 +84,11 @@ export default function Home() {
       </div>
 
       {/* Chat */}
-      <div className="relative flex-1 overflow-y-auto">
+      <div className="relative flex-1 overflow-y-auto bg-gray-900">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <img src="/logo-krro.png" alt="" className="w-4/5 opacity-50 select-none" />
+          <img src="/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
         </div>
-        <div className="relative p-4 space-y-4 pb-24">
+        <div className="relative p-4 space-y-4 pb-4">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-xl px-4 py-2 break-words ${m.role === "user" ? "bg-blue-600" : "bg-gray-800"}`}>
@@ -111,7 +111,7 @@ export default function Home() {
       </div>
 
       {/* Input Area */}
-      <div className="fixed bottom-0 w-full bg-gray-900 p-4 border-t border-gray-800 flex gap-2 items-center">
+      <div className="w-full bg-gray-900 p-4 border-t border-gray-800 flex gap-2 items-center">
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
         <button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="p-2 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50">
           📷
