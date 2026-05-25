@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const { message, image, history } = await req.json();
 
     // Monta histórico no formato Gemini (role: "user" | "model")
-    const contents = (history as Array<{ role: string; content: string }>).map((msg) => ({
+    const contents: Array<{ role: string; parts: unknown[] }> = (history as Array<{ role: string; content: string }>).map((msg) => ({
       role: msg.role === "elton" || msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
     }));
