@@ -6,54 +6,48 @@ export async function POST(req: NextRequest) {
   try {
     const { message, image, history } = await req.json();
 
-    // Monta conteúdo da mensagem atual (texto + imagem opcional)
-    const currentContent: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> = [
-      { type: "text", text: message },
+    // Monta histórico no formato Gemini (role: "user" | "model")
+    const contents = (history as Array<{ role: string; content: string }>).map((msg) => ({
+      role: msg.role === "elton" || msg.role === "assistant" ? "model" : "user",
+      parts: [{ text: msg.content }],
+    }));
+
+    // Monta a mensagem atual (texto + imagem opcional)
+    const currentParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [
+      { text: message },
     ];
 
     if (image && typeof image === "string") {
       const base64Data = image.includes(",") ? image.split(",")[1] : image;
-      currentContent.push({
-        type: "image",
-        source: { type: "base64", media_type: "image/jpeg", data: base64Data },
-      });
+      currentParts.push({ inline_data: { mime_type: "image/jpeg", data: base64Data } });
     }
 
-    // Histórico apenas com texto para evitar payload gigante
-    const formattedHistory = (history as Array<{ role: string; content: string }>).map((msg) => ({
-      role: msg.role === "elton" ? "assistant" : msg.role,
-      content: [{ type: "text", text: msg.content }],
-    }));
-
-    const fullMessages = [...formattedHistory, { role: "user", content: currentContent }];
+    contents.push({ role: "user", parts: currentParts });
 
     const { getEltonSystemPrompt } = await import("@/lib/elton/system");
     const systemPrompt = getEltonSystemPrompt(199);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        temperature: 0.7,
-        system: systemPrompt,
-        messages: fullMessages,
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY || ""}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Anthropic Error:", errText);
+      console.error("Gemini Error:", errText);
       return NextResponse.json({ error: `API Error: ${response.status}` }, { status: 500 });
     }
 
     const data = await response.json();
-    const reply = data.content[0].text as string;
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text as string;
     const t = reply.toLowerCase();
 
     let cardObj: { type: string } | null = null;
