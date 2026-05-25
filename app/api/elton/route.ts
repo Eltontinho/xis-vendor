@@ -53,7 +53,19 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json({ message: data.content[0].text });
+    const reply = data.content[0].text as string;
+    const t = reply.toLowerCase();
+
+    let cardObj: { type: string } | null = null;
+    if (/card de apresenta[çc]|cardk/.test(t)) {
+      cardObj = { type: "apresentacao" };
+    } else if (/conta de padaria|clube k-?rro|clube-todos/.test(t)) {
+      cardObj = { type: "clube" };
+    } else if (/platina/.test(t) && /fechar|garantir|vaga|confirmar|pagar/.test(t)) {
+      cardObj = { type: "pagamento" };
+    }
+
+    return NextResponse.json({ message: reply, card: cardObj });
 
   } catch (error) {
     console.error("Server Error:", error);
