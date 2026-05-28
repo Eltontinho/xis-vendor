@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const systemPrompt = getEltonSystemPrompt(199);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY || ""}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY || ""}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Gemini Error:", errText);
-      return NextResponse.json({ error: `Gemini ${response.status}`, detail: errText }, { status: 500 });
+      return NextResponse.json({ error: `API Error: ${response.status}` }, { status: 500 });
     }
 
     const data = await response.json();
