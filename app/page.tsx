@@ -87,9 +87,9 @@ export default function Home() {
         throw new Error(data.error || "Erro desconhecido");
       }
       if (data.card?.type) {
-        const cardImg = data.card.type === "apresentacao" ? "/cardk-rrofundopreto.png"
-          : data.card.type === "clube" ? "/clube-todos.png"
-          : "/clube-platina.jpg";
+        const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrobranco.png"
+          : data.card.type === "clube" ? "/cards/clube-todos.png"
+          : "/cards/clube-platina.jpg";
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
         setFullscreenCard(cardImg);
       }
@@ -115,7 +115,7 @@ export default function Home() {
       {/* Chat */}
       <div className="relative flex-1 overflow-y-auto bg-gray-900">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <img src="/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
+          <img src="/cards/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
         </div>
         <div className="relative p-4 space-y-4 pb-4">
         {messages.map((m) => (
@@ -166,7 +166,7 @@ export default function Home() {
     {splashOpen && (
       <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
         <button onClick={() => setSplashOpen(false)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
-        <img src="/krro-apresentacao.png" alt="K-RRO" className="w-full h-full object-contain" />
+        <img src="/cards/krro-apresentacao.png" alt="K-RRO" className="w-full h-full object-contain" />
       </div>
     )}
 

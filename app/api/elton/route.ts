@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text as string;
+    const cleanReply = reply.replace(/\[CARD_[A-Z_]+\]/g, "").trim();
     const t = reply.toLowerCase();
 
     let cardObj: { type: string } | null = null;
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       cardObj = { type: "pagamento" };
     }
 
-    return NextResponse.json({ message: reply, card: cardObj });
+    return NextResponse.json({ message: cleanReply, card: cardObj });
 
   } catch (error) {
     console.error("Server Error:", error);
