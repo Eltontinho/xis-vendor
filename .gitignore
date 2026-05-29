@@ -51,3 +51,5 @@ public/video/*.mp4
 .DS_Store
 .vscode/
 .idea/
+
+.env*.local
