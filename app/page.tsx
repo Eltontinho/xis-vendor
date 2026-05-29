@@ -134,13 +134,19 @@ export default function Home() {
       <div className="flex flex-col h-full w-full max-w-[430px] mx-auto bg-black relative text-white">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
-        <h1 className="font-bold">Elton</h1>
+        <div className="flex items-center gap-3">
+          <img src="/elton-avatar.png" alt="Elton" className="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <h1 className="font-bold text-white">Elton</h1>
+            <p className="text-xs text-gray-400">Consultor K-RRO</p>
+          </div>
+        </div>
         <span className="text-xs text-green-500">● Online</span>
       </div>
 
       {/* Logo de fundo fixo (não rola com o chat) */}
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
-        <img src="/cards/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
+        <img src="/logo-krro.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.20 }} />
       </div>
 
       {/* Chat */}
@@ -148,7 +154,11 @@ export default function Home() {
         <div className="relative p-4 space-y-4 pb-4 z-10">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-xl px-4 py-2 break-words ${m.role === "user" ? "bg-blue-600" : "bg-gray-800"}`}>
+            <div className={`max-w-[85%] px-4 py-2 break-words text-sm ${
+              m.role === "user"
+                ? "bg-blue-600 rounded-2xl rounded-tr-sm text-white"
+                : "bg-gray-900 border-l-[3px] border-blue-500 rounded-r-2xl text-gray-200"
+            }`}>
               {m.image && <img src={m.image} alt="upload" className="max-w-full rounded-lg mb-2 max-h-60 object-contain" />}
               {m.cardType && <img src={m.cardType} onClick={() => setFullscreenCard(m.cardType!)} className="rounded-xl max-w-[200px] cursor-pointer" />}
               {m.content && <p>{m.content}</p>}
