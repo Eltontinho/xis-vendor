@@ -103,6 +103,7 @@ export default function Home() {
   };
 
   return (
+    <>
     <div className="flex flex-col h-screen bg-black">
       <div className="flex flex-col h-full w-full max-w-[430px] mx-auto bg-black relative text-white">
       {/* Header */}
@@ -176,5 +177,6 @@ export default function Home() {
         <img src={fullscreenCard} alt="Card" className="max-w-sm w-full rounded-2xl" />
       </div>
     )}
+    </>
   );
 }
