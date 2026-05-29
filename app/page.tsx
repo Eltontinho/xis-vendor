@@ -138,12 +138,14 @@ export default function Home() {
         <span className="text-xs text-green-500">● Online</span>
       </div>
 
+      {/* Logo de fundo fixo (não rola com o chat) */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
+        <img src="/cards/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
+      </div>
+
       {/* Chat */}
-      <div className="relative flex-1 overflow-y-auto bg-gray-900">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <img src="/cards/cardk-rrofundopreto.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.15 }} />
-        </div>
-        <div className="relative p-4 space-y-4 pb-4">
+      <div className="relative flex-1 overflow-y-auto bg-gray-900/80">
+        <div className="relative p-4 space-y-4 pb-4 z-10">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-xl px-4 py-2 break-words ${m.role === "user" ? "bg-blue-600" : "bg-gray-800"}`}>
@@ -170,7 +172,7 @@ export default function Home() {
       <div className="w-full bg-gray-900 p-4 border-t border-gray-800 flex gap-2 items-center">
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
         <button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="p-2 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50">
-          📷
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <input
           ref={inputRef}
