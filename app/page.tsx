@@ -64,6 +64,32 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
+  const typeMessage = (msgText: string, msgId: string): Promise<void> => {
+    return new Promise((resolve) => {
+      let i = 0;
+      const iv = setInterval(() => {
+        i++;
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: msgText.slice(0, i) } : m));
+        if (i >= msgText.length) { clearInterval(iv); resolve(); }
+      }, 20);
+    });
+  };
+
+  const displayEltonResponse = async (fullMessage: string) => {
+    const fragments = fullMessage
+      .replace(/([.!?])\s+/g, "$1\n")
+      .split("\n")
+      .map(f => f.trim())
+      .filter(f => f.length > 0);
+
+    for (let i = 0; i < fragments.length; i++) {
+      const msgId = `elton-${Date.now()}-${i}`;
+      setMessages(prev => [...prev, { id: msgId, role: "elton", content: "", timestamp: Date.now() }]);
+      await typeMessage(fragments[i], msgId);
+      if (i < fragments.length - 1) await new Promise(r => setTimeout(r, 1200));
+    }
+  };
+
   const sendMessageToElton = async (text: string, base64Image?: string) => {
     setIsLoading(true);
 
@@ -82,12 +108,12 @@ export default function Home() {
       const data = await res.json();
 
       if (data.message) {
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "elton", content: data.message, timestamp: Date.now() }]);
+        await displayEltonResponse(data.message);
       } else {
         throw new Error(data.error || "Erro desconhecido");
       }
       if (data.card?.type) {
-        const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrobranco.png"
+        const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrofundopreto.png"
           : data.card.type === "clube" ? "/cards/clube-todos.png"
           : "/cards/clube-platina.jpg";
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
@@ -172,9 +198,9 @@ export default function Home() {
 
     {/* Card fullscreen */}
     {fullscreenCard && (
-      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={() => setFullscreenCard(null)}>
         <button onClick={() => setFullscreenCard(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
-        <img src={fullscreenCard} alt="Card" className="max-w-sm w-full rounded-2xl" />
+        <img src={fullscreenCard} alt="Card" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
       </div>
     )}
     </>
