@@ -7,6 +7,7 @@ interface Message {
   content: string;
   timestamp: number;
   image?: string;
+  cardType?: string;
 }
 
 function CardApresentacao({ onClose }: { onClose: () => void }) {
@@ -33,6 +34,8 @@ export default function Home() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [splashOpen, setSplashOpen] = useState(true);
+  const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +86,13 @@ export default function Home() {
       } else {
         throw new Error(data.error || "Erro desconhecido");
       }
+      if (data.card?.type) {
+        const cardImg = data.card.type === "apresentacao" ? "/cardk-rrofundopreto.png"
+          : data.card.type === "clube" ? "/clube-todos.png"
+          : "/clube-platina.jpg";
+        setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
+        setFullscreenCard(cardImg);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "elton", content: `Erro: ${msg}`, timestamp: Date.now() }]);
@@ -111,7 +121,8 @@ export default function Home() {
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-xl px-4 py-2 break-words ${m.role === "user" ? "bg-blue-600" : "bg-gray-800"}`}>
               {m.image && <img src={m.image} alt="upload" className="max-w-full rounded-lg mb-2 max-h-60 object-contain" />}
-              <p>{m.content}</p>
+              {m.cardType && <img src={m.cardType} onClick={() => setFullscreenCard(m.cardType!)} className="rounded-xl max-w-[200px] cursor-pointer" />}
+              {m.content && <p>{m.content}</p>}
             </div>
           </div>
         ))}
@@ -149,5 +160,21 @@ export default function Home() {
       </div>
       </div>
     </div>
+
+    {/* Splash inicial */}
+    {splashOpen && (
+      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <button onClick={() => setSplashOpen(false)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
+        <img src="/krro-apresentacao.png" alt="K-RRO" className="w-full h-full object-contain" />
+      </div>
+    )}
+
+    {/* Card fullscreen */}
+    {fullscreenCard && (
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+        <button onClick={() => setFullscreenCard(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
+        <img src={fullscreenCard} alt="Card" className="max-w-sm w-full rounded-2xl" />
+      </div>
+    )}
   );
 }
