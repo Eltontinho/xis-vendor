@@ -202,10 +202,10 @@ export default function Home() {
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && handleSendText()}
           placeholder="Digite ou envie foto..."
-          className="flex-1 bg-gray-800 rounded-lg px-4 py-2 outline-none"
+          className="flex-1 min-w-0 bg-gray-800 rounded-lg px-4 py-2 outline-none"
           disabled={isLoading}
         />
-        <button onClick={handleSendText} disabled={isLoading || !input.trim()} className="bg-blue-600 px-4 py-2 rounded-lg font-bold disabled:opacity-50 shrink-0">
+        <button onClick={handleSendText} disabled={isLoading || !input.trim()} className="bg-blue-600 px-4 py-2 rounded-lg font-bold disabled:opacity-50 shrink-0 min-w-[44px]">
           ➤
         </button>
       </div>
