@@ -178,7 +178,7 @@ export default function Home() {
       </div>
 
       {/* Input Area */}
-      <div className="w-full bg-gray-900 p-4 border-t border-gray-800 flex gap-2 items-center">
+      <div className="w-full bg-gray-900 px-4 py-3 border-t border-gray-800 flex gap-2 items-center overflow-visible">
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
         <button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="p-2 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -192,7 +192,7 @@ export default function Home() {
           className="flex-1 bg-gray-800 rounded-lg px-4 py-2 outline-none"
           disabled={isLoading}
         />
-        <button onClick={handleSendText} disabled={isLoading || !input.trim()} className="bg-blue-600 px-4 py-2 rounded-lg font-bold disabled:opacity-50">
+        <button onClick={handleSendText} disabled={isLoading || !input.trim()} className="bg-blue-600 px-4 py-2 rounded-lg font-bold disabled:opacity-50 shrink-0">
           ➤
         </button>
       </div>
