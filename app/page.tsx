@@ -144,13 +144,12 @@ export default function Home() {
         <span className="text-xs text-green-500">● Online</span>
       </div>
 
-      {/* Logo de fundo fixo (não rola com o chat) */}
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
-        <img src="/logo-krro.png" alt="" className="w-3/5 select-none" style={{ opacity: 0.20 }} />
-      </div>
-
       {/* Chat */}
       <div className="relative flex-1 overflow-y-auto bg-gray-900/80">
+        {/* Logo centralizado dentro da coluna do chat */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+          <img src="/logo-krro.png" alt="" className="w-3/4 select-none" style={{ opacity: 0.20 }} />
+        </div>
         <div className="relative p-4 space-y-4 pb-4 z-10">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
