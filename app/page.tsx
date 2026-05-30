@@ -84,10 +84,15 @@ export default function Home() {
       .filter(f => f.length > 0);
 
     for (let i = 0; i < fragments.length; i++) {
+      if (i > 0) {
+        setMessages(prev => [...prev, { id: "typing-indicator", role: "elton", content: "__typing__", timestamp: Date.now() }]);
+        await new Promise(r => setTimeout(r, 1500));
+        setMessages(prev => prev.filter(m => m.id !== "typing-indicator"));
+      }
       const msgId = `elton-${Date.now()}-${i}`;
       setMessages(prev => [...prev, { id: msgId, role: "elton", content: "", timestamp: Date.now() }]);
       await typeMessage(fragments[i], msgId);
-      if (i < fragments.length - 1) await new Promise(r => setTimeout(r, 1200));
+      if (i < fragments.length - 1) await new Promise(r => setTimeout(r, 800));
     }
   };
 
@@ -162,7 +167,13 @@ export default function Home() {
             }`}>
               {m.image && <img src={m.image} alt="upload" className="max-w-full rounded-lg mb-2 max-h-60 object-contain" />}
               {m.cardType && <img src={m.cardType} onClick={() => setFullscreenCard(m.cardType!)} className="rounded-xl max-w-[200px] cursor-pointer" />}
-              {m.content && <p>{m.content}</p>}
+              {m.content === "__typing__" ? (
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              ) : m.content ? <p>{m.content}</p> : null}
             </div>
           </div>
         ))}
