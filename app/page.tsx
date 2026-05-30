@@ -36,6 +36,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [splashOpen, setSplashOpen] = useState(true);
   const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
+  const [cardsShown, setCardsShown] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,7 +113,8 @@ export default function Home() {
       } else {
         throw new Error(data.error || "Erro desconhecido");
       }
-      if (data.card?.type) {
+      if (data.card?.type && !cardsShown.has(data.card.type)) {
+        setCardsShown(prev => new Set(prev).add(data.card.type));
         const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrofundopreto.png"
           : data.card.type === "clube" ? "/cards/clube-todos.png"
           : "/cards/clube-platina.jpg";
