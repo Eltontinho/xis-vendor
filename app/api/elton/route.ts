@@ -52,19 +52,15 @@ export async function POST(req: NextRequest) {
     const t = reply.toLowerCase();
 
     let cardObj: { type: string } | null = null;
-    let followUp: string | null = null;
     if (/card de apresenta[çc]|cardk/.test(t)) {
       cardObj = { type: "apresentacao" };
-      followUp = "O que você viu até agora que faz sentido pra você?";
     } else if (/conta de padaria|clube k-?rro|clube-todos/.test(t)) {
       cardObj = { type: "clube" };
-      followUp = "Qual desses benefícios é mais importante pra você hoje?";
     } else if (/platina/.test(t) && /fechar|garantir|vaga|confirmar|pagar/.test(t)) {
       cardObj = { type: "pagamento" };
-      followUp = null;
     }
 
-    return NextResponse.json({ message: cleanReply, card: cardObj, followUp: followUp ?? null });
+    return NextResponse.json({ message: cleanReply, card: cardObj });
 
   } catch (error) {
     console.error("Server Error:", error);
