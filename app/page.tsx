@@ -96,6 +96,18 @@ export default function Home() {
     }
   };
 
+  const handleCloseCard = async () => {
+    const card = fullscreenCard;
+    setFullscreenCard(null);
+    await new Promise(r => setTimeout(r, 800));
+    const question = card === "/cards/cardk-rrofundopreto.png"
+      ? "O que te chamou atenção no card?"
+      : card === "/cards/clube-todos.png"
+      ? "Qual desses benefícios faz mais sentido pra você hoje?"
+      : "O que achou do que viu?";
+    await displayEltonResponse(question);
+  };
+
   const sendMessageToElton = async (text: string, base64Image?: string) => {
     setIsLoading(true);
 
@@ -123,6 +135,7 @@ export default function Home() {
         const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrofundopreto.png"
           : data.card.type === "clube" ? "/cards/clube-todos.png"
           : "/cards/clube-platina.jpg";
+        await new Promise(r => setTimeout(r, 2000));
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
         setFullscreenCard(cardImg);
       }
@@ -137,8 +150,8 @@ export default function Home() {
 
   return (
     <>
-    <div className="flex flex-col h-screen bg-black">
-      <div className="flex flex-col h-full w-full max-w-[430px] mx-auto bg-black relative text-white">
+    <div className="flex flex-col h-screen bg-[#050810]">
+      <div className="flex flex-col h-full w-full max-w-[430px] mx-auto w-full bg-black relative text-white">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
         <div className="flex items-center gap-3">
@@ -152,10 +165,10 @@ export default function Home() {
       </div>
 
       {/* Chat */}
-      <div className="relative flex-1 overflow-y-auto bg-gray-900/80">
+      <div className="relative flex-1 overflow-y-auto bg-[#0a0f1e]">
         {/* Logo centralizado dentro da coluna do chat */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-          <img src="/logo-krro.png" alt="" className="w-3/4 select-none" style={{ opacity: 0.20 }} />
+          <img src="/logo-krro.png" alt="" className="w-3/4 select-none" style={{ opacity: 0.35 }} />
         </div>
         <div className="relative p-4 space-y-4 pb-4 z-10">
         {messages.map((m) => (
@@ -222,8 +235,8 @@ export default function Home() {
 
     {/* Card fullscreen */}
     {fullscreenCard && (
-      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={() => setFullscreenCard(null)}>
-        <button onClick={() => setFullscreenCard(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={handleCloseCard}>
+        <button onClick={handleCloseCard} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10">×</button>
         <img src={fullscreenCard} alt="Card" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
       </div>
     )}
