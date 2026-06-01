@@ -128,16 +128,8 @@ export default function Home() {
     }).catch(() => {});
   };
 
-  const handleCloseCard = async () => {
-    const card = fullscreenCard;
+  const handleCloseCard = () => {
     setFullscreenCard(null);
-    await new Promise(r => setTimeout(r, 800));
-    const question = card === "/cards/cardk-rrofundopreto.png"
-      ? "O que te chamou atenção no card?"
-      : card === "/cards/clube-todos.png"
-      ? "Qual desses benefícios faz mais sentido pra você hoje?"
-      : "O que achou do que viu?";
-    await displayEltonResponse(question);
   };
 
   const sendMessageToElton = async (text: string, base64Image?: string) => {
