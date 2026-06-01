@@ -37,11 +37,22 @@ export default function Home() {
   const [splashOpen, setSplashOpen] = useState(true);
   const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
   const [cardsShown, setCardsShown] = useState<Set<string>>(new Set());
+  const [sessionId] = useState(() => typeof window !== "undefined" ? (localStorage.getItem("elton_session_v3") || `sess_${Date.now()}`) : `sess_${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inactivityRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+
+  useEffect(() => {
+    if (messages.length < 3) return;
+    if (inactivityRef.current) clearTimeout(inactivityRef.current);
+    inactivityRef.current = setTimeout(() => {
+      triggerAnalysis("abandonou");
+    }, 10 * 60 * 1000);
+    return () => { if (inactivityRef.current) clearTimeout(inactivityRef.current); };
+  }, [messages]);
 
   const handleSendText = async () => {
     if (!input.trim() || isLoading) return;
@@ -96,6 +107,16 @@ export default function Home() {
     }
   };
 
+  const triggerAnalysis = async (resultado: "converteu" | "rejeitou" | "abandonou") => {
+    if (messages.length < 3) return;
+    const history = messages.map(m => ({ role: m.role === "elton" ? "assistant" : "user", content: m.content }));
+    fetch("/api/elton/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, session_id: sessionId || "unknown", resultado }),
+    }).catch(() => {});
+  };
+
   const handleCloseCard = async () => {
     const card = fullscreenCard;
     setFullscreenCard(null);
@@ -129,6 +150,12 @@ export default function Home() {
         await displayEltonResponse(data.message);
       } else {
         throw new Error(data.error || "Erro desconhecido");
+      }
+      const lower = (data.message || "").toLowerCase();
+      if (lower.includes("bem-vindo à k-rro") && lower.includes("pagamento")) {
+        triggerAnalysis("converteu");
+      } else if (lower.includes("quando fizer sentido") || lower.includes("encerrando o atendimento")) {
+        triggerAnalysis("rejeitou");
       }
       if (data.card?.type && !cardsShown.has(data.card.type)) {
         setCardsShown(prev => new Set(prev).add(data.card.type));
