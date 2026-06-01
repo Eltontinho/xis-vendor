@@ -10,12 +10,26 @@ interface Message {
   cardType?: string;
 }
 
+function getThinkingText(userMessage: string): string {
+  const msg = userMessage.toLowerCase();
+  if (/\d{4}/.test(msg)) return "Analisando o veículo...";
+  if (/corridas?|viagens?/.test(msg)) return "Calculando os números...";
+  if (/ticket|recebo|ganho|valor/.test(msg)) return "Calculando os números...";
+  if (/onix|creta|polo|hb20|argo|virtus|fastback|versa|kwid|fiat|jeep|toyota|honda|vw|chevrolet/.test(msg)) return "Analisando o veículo...";
+  if (/porto alegre|poa|são paulo|curitiba|floripa|rio|salvador|fortaleza|canoas|gravataí|hamburgo/.test(msg)) return "Buscando informações da sua região...";
+  if (/sim|quero|pode|bora|confirmo|fechado/.test(msg)) return "Preparando sua vaga...";
+  if (/não|nao|depois|caro|pensar/.test(msg)) return "Entendendo sua situação...";
+  if (msg.length < 15) return "Pensando...";
+  return "Analisando...";
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "1", role: "elton", content: "Seja bem-vindo à K-RRO! Sou o Elton. Qual é o seu nome?", timestamp: Date.now() },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [thinkingText, setThinkingText] = useState("Pensando...");
   const [splashOpen, setSplashOpen] = useState(true);
   const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
   const [cardsShown, setCardsShown] = useState<Set<string>>(new Set());
@@ -58,38 +72,18 @@ export default function Home() {
         i++;
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: msgText.slice(0, i) } : m));
         if (i >= msgText.length) { clearInterval(iv); resolve(); }
-      }, 20);
+      }, 15);
     });
   };
 
   const displayEltonResponse = async (fullMessage: string) => {
-    const fragments = fullMessage
-      .replace(/([.!?])\s+/g, "$1\n")
-      .split("\n")
-      .map(f => f.trim())
-      .filter(f => f.length > 0);
-
-    for (let i = 0; i < fragments.length; i++) {
-      if (i > 0) {
-        setMessages(prev => [...prev, { id: "typing-indicator", role: "elton", content: "__typing__", timestamp: Date.now() }]);
-        await new Promise(r => setTimeout(r, 1500));
-        setMessages(prev => prev.filter(m => m.id !== "typing-indicator"));
-      }
-      const msgId = `elton-${Date.now()}-${i}`;
-      setMessages(prev => [...prev, { id: msgId, role: "elton", content: "", timestamp: Date.now() }]);
-      await typeMessage(fragments[i], msgId);
-      if (i < fragments.length - 1) await new Promise(r => setTimeout(r, 800));
-    }
+    const msgId = `elton-${Date.now()}`;
+    setMessages(prev => [...prev, { id: msgId, role: "elton", content: "", timestamp: Date.now() }]);
+    await typeMessage(fullMessage, msgId);
   };
 
-  const handleCloseCard = async () => {
-    const cardAtual = fullscreenCard;
+  const handleCloseCard = () => {
     setFullscreenCard(null);
-    if (!cardAtual) return;
-    await new Promise(r => setTimeout(r, 800));
-    if (cardAtual.includes("cardk-rro")) {
-      await displayEltonResponse("O que te chamou atenção no card?");
-    }
   };
 
   const handleSendText = async () => {
@@ -126,6 +120,7 @@ export default function Home() {
   };
 
   const sendMessageToElton = async (text: string, base64Image?: string) => {
+    setThinkingText(getThinkingText(text));
     setIsLoading(true);
 
     const historyPayload = messages.map(m => ({
@@ -153,7 +148,17 @@ export default function Home() {
         throw new Error(data.error || "Erro desconhecido");
       }
 
-      // Detecta conversão e rejeição
+      // Link de pagamento
+      if (data.checkoutUrl) {
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 10).toString(),
+          role: "elton",
+          content: `🔗 Link de pagamento: ${data.checkoutUrl}`,
+          timestamp: Date.now(),
+        }]);
+      }
+
+      // Análise de conversão
       const lower = (data.message || "").toLowerCase();
       if (lower.includes("bem-vindo à k-rro") && lower.includes("pagamento")) {
         triggerAnalysis("converteu");
@@ -161,13 +166,13 @@ export default function Home() {
         triggerAnalysis("rejeitou");
       }
 
-      // Exibe card (uma vez por tipo)
+      // Card
       if (data.card?.type && !cardsShown.has(data.card.type)) {
         setCardsShown(prev => new Set(prev).add(data.card.type));
         const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrofundopreto.png"
           : data.card.type === "clube" ? "/cards/clube-todos.png"
           : "/cards/clube-platina.jpg";
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1500));
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
         setFullscreenCard(cardImg);
       }
@@ -224,12 +229,16 @@ export default function Home() {
                       alt="card"
                     />
                   )}
-                  {m.content === "__typing__" ? (
-                    <div className="flex gap-1 py-1">
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
+                  {m.content?.startsWith("🔗 Link de pagamento:") ? (
+                    <a
+                      href={m.content.replace("🔗 Link de pagamento: ", "")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block mt-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-center rounded-xl font-bold text-sm"
+                      style={{ boxShadow: "0 0 12px rgba(59,130,246,0.6)" }}
+                    >
+                      ✅ Garantir minha vaga agora
+                    </a>
                   ) : m.content ? <p className="whitespace-pre-wrap">{m.content}</p> : null}
                 </div>
               </div>
@@ -237,10 +246,9 @@ export default function Home() {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-800 rounded-xl px-4 py-3 flex gap-1">
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="bg-gray-900 border-l-[3px] border-blue-400 rounded-r-2xl px-4 py-2 text-xs text-blue-300 italic"
+                  style={{ boxShadow: "-3px 0 8px rgba(96,165,250,0.4)" }}>
+                  {thinkingText}
                 </div>
               </div>
             )}
