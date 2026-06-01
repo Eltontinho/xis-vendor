@@ -37,6 +37,7 @@ export default function Home() {
   const [splashOpen, setSplashOpen] = useState(true);
   const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
   const [cardsShown, setCardsShown] = useState<Set<string>>(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
   const [sessionId] = useState(() => typeof window !== "undefined" ? (localStorage.getItem("elton_session_v3") || `sess_${Date.now()}`) : `sess_${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,8 +59,18 @@ export default function Home() {
     if (!input.trim() || isLoading) return;
     const text = input;
     setInput("");
-    // Adiciona a msg do usuário no chat antes de enviar
     setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: text, timestamp: Date.now() }]);
+    if (text.trim() === "eltondeoliveirak-rro@Jaelpicoe2429$$") {
+      setIsAdmin(true);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: "elton",
+        content: "🔐 Modo dashboard ativado. O que você quer saber, Elton?",
+        timestamp: Date.now()
+      }]);
+      setIsLoading(false);
+      return;
+    }
     await sendMessageToElton(text, undefined);
   };
 
@@ -138,10 +149,14 @@ export default function Home() {
     }));
 
     try {
-      const res = await fetch("/api/elton", {
+      const endpoint = isAdmin ? "/api/elton/admin" : "/api/elton";
+      const body = isAdmin
+        ? JSON.stringify({ message: text, password: "eltondeoliveirak-rro@Jaelpicoe2429$$" })
+        : JSON.stringify({ message: text, image: base64Image, history: historyPayload });
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, image: base64Image, history: historyPayload }),
+        body,
       });
 
       const data = await res.json();
@@ -184,8 +199,8 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <img src="/elton-avatar.png" alt="Elton" className="w-10 h-10 rounded-full object-cover" />
           <div>
-            <h1 className="font-bold text-white">Elton</h1>
-            <p className="text-xs text-gray-400">Consultor K-RRO</p>
+            <h1 className="font-bold text-white">{isAdmin ? "Dashboard K-RRO" : "Elton"}</h1>
+            <p className="text-xs text-gray-400">{isAdmin ? "Painel Administrativo" : "Consultor K-RRO"}</p>
           </div>
         </div>
         <span className="text-xs text-green-500">● Online</span>
@@ -203,7 +218,9 @@ export default function Home() {
             <div className={`max-w-[85%] px-4 py-2 break-words text-sm ${
               m.role === "user"
                 ? "bg-blue-600 rounded-2xl rounded-tr-sm text-white"
-                : "bg-gray-900 border-l-[3px] border-blue-500 rounded-r-2xl text-gray-200"
+                : isAdmin
+                  ? "bg-gray-900 border-l-[3px] border-yellow-500 rounded-r-2xl text-gray-200"
+                  : "bg-gray-900 border-l-[3px] border-blue-500 rounded-r-2xl text-gray-200"
             }`}>
               {m.image && <img src={m.image} alt="upload" className="max-w-full rounded-lg mb-2 max-h-60 object-contain" />}
               {m.cardType && <img src={m.cardType} onClick={() => setFullscreenCard(m.cardType!)} className="rounded-xl max-w-[200px] cursor-pointer" />}
