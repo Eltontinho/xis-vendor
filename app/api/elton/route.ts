@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const fragments = cleanReply.split(/\n\n+/).map(f => f.trim()).filter(f => f.length > 3);
+    const fragments = cleanReply.split(/\n+/).map(f => f.trim()).filter(f => f.length > 3);
     return NextResponse.json({ messages: fragments, card: cardObj, checkoutUrl });
   } catch (error) {
     console.error("Server Error:", error);
