@@ -82,13 +82,8 @@ export default function Home() {
     await typeMessage(fullMessage, msgId);
   };
 
-  const handleCloseCard = async () => {
-    const cardAtual = fullscreenCard;
+  const handleCloseCard = () => {
     setFullscreenCard(null);
-    if (cardAtual?.includes("cardk-rro")) {
-      await new Promise(r => setTimeout(r, 600));
-      await displayEltonResponse("O que te chamou atenção no card?");
-    }
   };
 
   const handleSendText = async () => {
