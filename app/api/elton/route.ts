@@ -4,22 +4,25 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, image, history } = await req.json();
+    const { message, image, history, session_id } = await req.json();
 
-    // Monta histórico no formato Gemini (role: "user" | "model")
-    const contents: Array<{ role: string; parts: unknown[] }> = (history as Array<{ role: string; content: string }>).map((msg) => ({
+    const contents: Array<{ role: string; parts: unknown[] }> = (
+      history as Array<{ role: string; content: string }>
+    ).map((msg) => ({
       role: msg.role === "elton" || msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
     }));
 
-    // Monta a mensagem atual (texto + imagem opcional)
-    const currentParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [
-      { text: message },
-    ];
+    const currentParts: Array<{
+      text?: string;
+      inline_data?: { mime_type: string; data: string };
+    }> = [{ text: message }];
 
     if (image && typeof image === "string") {
       const base64Data = image.includes(",") ? image.split(",")[1] : image;
-      currentParts.push({ inline_data: { mime_type: "image/jpeg", data: base64Data } });
+      currentParts.push({
+        inline_data: { mime_type: "image/jpeg", data: base64Data },
+      });
     }
 
     contents.push({ role: "user", parts: currentParts });
@@ -43,27 +46,108 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Gemini Error:", errText);
-      return NextResponse.json({ error: `API Error: ${response.status}` }, { status: 500 });
+      return NextResponse.json(
+        { error: `API Error: ${response.status}` },
+        { status: 500 }
+      );
     }
 
     const data = await response.json();
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text as string;
-    const cleanReply = reply.replace(/\[CARD_[A-Z_]+\]/g, "").trim();
-    const t = reply.toLowerCase();
+    const cleanReply = reply.replace(/\[CARD_[A-Z_:=|0-9.]+\]/g, "").trim();
 
     let cardObj: { type: string } | null = null;
-    if (/card de apresenta[çc]|cardk/.test(t)) {
+    if (reply.includes("[CARD_APRESENTACAO]")) {
       cardObj = { type: "apresentacao" };
-    } else if (/conta de padaria|clube k-?rro|clube-todos/.test(t)) {
+    } else if (reply.includes("[CARD_CLUBE]")) {
       cardObj = { type: "clube" };
-    } else if (/platina/.test(t) && /fechar|garantir|vaga|confirmar|pagar/.test(t)) {
+    } else if (reply.includes("[CARD_PAGAMENTO]")) {
       cardObj = { type: "pagamento" };
     }
 
-    return NextResponse.json({ message: cleanReply, card: cardObj });
+    // Detecta pré-cadastro quando veículo é aprovado
+    const categoriaMatch = reply.match(/entra na categoria (GO|PLUS|SUV|EXEC|CARE)/i);
+    if (categoriaMatch && session_id) {
+      const categoria = categoriaMatch[1].toUpperCase();
+      const historyText = (history || [])
+        .map((m: { role: string; content: string }) => m.content)
+        .join(" ");
+      const anoMatch = historyText.match(/\b(20[2-9][0-9])\b/);
+      const ano = anoMatch ? parseInt(anoMatch[1]) : null;
+      const userMsgs = (history || []).filter(
+        (m: { role: string }) => m.role === "user"
+      );
+      const ultimoModelo = userMsgs[userMsgs.length - 2]?.content || "";
+      const nomeMatch = historyText.match(
+        /(?:meu nome é|pode me chamar de|sou o|sou a)\s+([A-ZÀ-Ú][a-zà-ú]+)/i
+      );
+      const nome = nomeMatch ? nomeMatch[1] : null;
 
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://axis-vendor.vercel.app"}/api/elton/precadastro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id,
+          nome,
+          cidade: null,
+          veiculo_modelo: ultimoModelo,
+          veiculo_ano: ano,
+          veiculo_cat: categoria,
+        }),
+      }).catch(() => {});
+    }
+
+    // Detecta confirmação de dados e gera link de pagamento real
+    let checkoutUrl: string | null = null;
+    const isConfirmacao = /tudo certo|aqui está seu link|vaga de fundador.*link|link.*fundador/i.test(cleanReply);
+    if (isConfirmacao) {
+      const histAll = (history || [])
+        .map((m: { role: string; content: string }) => m.content)
+        .join(" ")
+        .toLowerCase();
+
+      let lot: "lote3" | "lote2" | "lote1" = "lote3";
+      if (/\bouro\b/.test(histAll)) lot = "lote2";
+      else if (/\bprata\b/.test(histAll)) lot = "lote1";
+
+      const phoneMatch = histAll.match(/(\d{10,11})/);
+      const phone = phoneMatch ? phoneMatch[1] : "";
+      const nameMatch = cleanReply.match(/nome:\s*([^\n]+)/i);
+      const name = nameMatch ? nameMatch[1].trim() : "";
+      const cityMatch = cleanReply.match(/cidade:\s*([^\n]+)/i);
+      const city = cityMatch ? cityMatch[1].trim() : "";
+
+      try {
+        const reserveRes = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL || "https://axis-vendor.vercel.app"}/api/reserve`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lot,
+              conversation_id: session_id || "elton-chat",
+              driver_phone: phone,
+              driver_name: name,
+              driver_city: city,
+            }),
+          }
+        );
+        const reserveData = await reserveRes.json();
+        if (reserveData.success && reserveData.checkout_url) {
+          checkoutUrl = reserveData.checkout_url;
+        }
+      } catch {
+        // silently fail — Elton já mostrou o texto de confirmação
+      }
+    }
+
+    const fragments = cleanReply.split(/\n\n+/).map(f => f.trim()).filter(f => f.length > 3);
+    return NextResponse.json({ messages: fragments, card: cardObj, checkoutUrl });
   } catch (error) {
     console.error("Server Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

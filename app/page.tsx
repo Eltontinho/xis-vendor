@@ -82,8 +82,13 @@ export default function Home() {
     await typeMessage(fullMessage, msgId);
   };
 
-  const handleCloseCard = () => {
+  const handleCloseCard = async () => {
+    const cardAtual = fullscreenCard;
     setFullscreenCard(null);
+    if (cardAtual?.includes("cardk-rro")) {
+      await new Promise(r => setTimeout(r, 600));
+      await displayEltonResponse("O que te chamou atenção no card?");
+    }
   };
 
   const handleSendText = async () => {
@@ -142,8 +147,12 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.message) {
-        await displayEltonResponse(data.message);
+      const msgs = data.messages || (data.message ? [data.message] : null);
+      if (msgs) {
+        for (const frag of msgs) {
+          await displayEltonResponse(frag);
+          await new Promise(r => setTimeout(r, 1500));
+        }
       } else {
         throw new Error(data.error || "Erro desconhecido");
       }
