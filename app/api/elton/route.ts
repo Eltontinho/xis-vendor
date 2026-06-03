@@ -144,7 +144,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const fragments = cleanReply.split(/\n+/).map(f => f.trim()).filter(f => f.length > 3);
+    let finalReply = cleanReply;
+    if (cardObj?.type === "apresentacao") {
+      finalReply = cleanReply.split(/\n/)[0].trim() || "Vou te enviar o card de apresentação da K-RRO aqui. Dá uma olhada.";
+    }
+    const fragments = finalReply.split(/\n+/).map(f => f.trim()).filter(f => f.length > 3);
     return NextResponse.json({ messages: fragments, card: cardObj, checkoutUrl });
   } catch (error) {
     console.error("Server Error:", error);
