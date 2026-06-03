@@ -56,8 +56,7 @@ export async function POST(req: NextRequest) {
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text as string;
     const cleanReply = reply
       .replace(/\[CARD_[A-Z_:=|0-9.]+\]/g, "")
-      .replace(/O que te chamou aten[çc][ãa]o no card\?/gi, "")
-      .replace(/O que voc[êe] viu at[ée] agora que faz sentido pra voc[êe]\?/gi, "")
+      .replace(/[^\n]*(?:chamou aten|viu até agora|viu ate agora|faz sentido pra voc|o que achou)[^\n]*/gi, "")
       .trim();
 
     let cardObj: { type: string } | null = null;
