@@ -33,6 +33,7 @@ export default function Home() {
   const [splashOpen, setSplashOpen] = useState(true);
   const [fullscreenCard, setFullscreenCard] = useState<string | null>(null);
   const [cardsShown, setCardsShown] = useState<Set<string>>(new Set());
+  const [awaitingCardClose, setAwaitingCardClose] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [sessionId] = useState(() =>
     typeof window !== "undefined"
@@ -91,12 +92,24 @@ export default function Home() {
   const handleCloseCard = async () => {
     const cardAtual = fullscreenCard;
     setFullscreenCard(null);
-    if (cardAtual) {
-      await new Promise(r => setTimeout(r, 600));
-      await displayEltonResponse(
-        cardQuestions[cardAtual] ?? "O que te chamou atenção no card?"
-      );
+
+    if (!awaitingCardClose) return;
+
+    const lastMessage = messages[messages.length - 1]?.content || "";
+    if (
+      lastMessage.includes("O que te chamou") ||
+      lastMessage.includes("Qual benefício") ||
+      lastMessage.includes("Você se vê aproveitando")
+    ) {
+      setAwaitingCardClose(null);
+      return;
     }
+
+    await new Promise(r => setTimeout(r, 600));
+    await displayEltonResponse(
+      cardQuestions[cardAtual ?? ""] ?? "O que te chamou atenção no card?"
+    );
+    setAwaitingCardClose(null);
   };
 
   const handleSendText = async () => {
@@ -192,6 +205,7 @@ export default function Home() {
         await new Promise(r => setTimeout(r, 1500));
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);
         setFullscreenCard(cardImg);
+        setAwaitingCardClose(data.card.type);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
