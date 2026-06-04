@@ -145,8 +145,16 @@ export async function POST(req: NextRequest) {
     }
 
     let finalReply = cleanReply;
+    if (cardObj) {
+      finalReply = finalReply
+        .replace(/o que te chamou atenção.*$/gim, "")
+        .replace(/o que achou.*$/gim, "")
+        .replace(/faz sentido para você.*$/gim, "")
+        .replace(/qual dessas opções.*$/gim, "")
+        .trim();
+    }
     if (cardObj?.type === "apresentacao") {
-      finalReply = cleanReply.split(/\n/)[0].trim() || "Vou te enviar o card de apresentação da K-RRO aqui. Dá uma olhada.";
+      finalReply = finalReply.split(/\n/)[0].trim() || "Vou te enviar o card de apresentação da K-RRO aqui. Dá uma olhada.";
     }
     const fragments = finalReply.split(/\n+/).map(f => f.trim()).filter(f => f.length > 3);
     return NextResponse.json({ messages: fragments, card: cardObj, checkoutUrl });
