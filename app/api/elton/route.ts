@@ -147,10 +147,18 @@ export async function POST(req: NextRequest) {
     let finalReply = cleanReply;
     if (cardObj) {
       finalReply = finalReply
-        .replace(/o que te chamou atenção.*$/gim, "")
-        .replace(/o que achou.*$/gim, "")
-        .replace(/faz sentido para você.*$/gim, "")
-        .replace(/qual dessas opções.*$/gim, "")
+        .split("\n")
+        .filter(line => {
+          const l = line.toLowerCase();
+          return !(
+            l.includes("o que te chamou") ||
+            l.includes("o que achou") ||
+            l.includes("faz sentido para você") ||
+            l.includes("qual benefício") ||
+            l.includes("qual dessas opções")
+          );
+        })
+        .join("\n")
         .trim();
     }
     if (cardObj?.type === "apresentacao") {
