@@ -82,12 +82,20 @@ export default function Home() {
     await typeMessage(fullMessage, msgId);
   };
 
+  const cardQuestions: Record<string, string> = {
+    "/cards/cardk-rrofundopreto.png": "O que te chamou mais atenção na proposta da K-RRO?",
+    "/cards/clube-todos.png": "Qual benefício do Clube te parece mais interessante?",
+    "/cards/clube-platina.jpg": "Você se vê aproveitando esses benefícios no seu dia a dia?",
+  };
+
   const handleCloseCard = async () => {
     const cardAtual = fullscreenCard;
     setFullscreenCard(null);
-    if (cardAtual?.includes("cardk-rro")) {
+    if (cardAtual) {
       await new Promise(r => setTimeout(r, 600));
-      await displayEltonResponse("O que te chamou atenção no card?");
+      await displayEltonResponse(
+        cardQuestions[cardAtual] ?? "O que te chamou atenção no card?"
+      );
     }
   };
 
