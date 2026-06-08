@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
       .trim();
 
     let cardObj: { type: string } | null = null;
+
+    const isFirstMessage = (history || []).filter((m: { role: string }) => m.role === "user").length === 1;
+    if (isFirstMessage) {
+      cardObj = { type: "apresentacao" };
+    }
+
     if (reply.includes("[CARD_APRESENTACAO]")) {
       cardObj = { type: "apresentacao" };
     } else if (reply.includes("[CARD_CLUBE]")) {
