@@ -6,49 +6,51 @@ export async function POST(req: NextRequest) {
   try {
     const { message, image, history, session_id } = await req.json();
 
-    // Converte histórico para formato Gemini
-    const contents: Array<{ role: string; parts: unknown[] }> = (
-      history as Array<{ role: string; content: string }>
-    ).map((msg) => ({
-      role: msg.role === "elton" || msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
-    }));
-
-    const currentParts: Array<{
-      text?: string;
-      inline_data?: { mime_type: string; data: string };
-    }> = [{ text: message }];
-
-    if (image && typeof image === "string") {
-      const base64Data = image.includes(",") ? image.split(",")[1] : image;
-      currentParts.push({
-        inline_data: { mime_type: "image/jpeg", data: base64Data },
-      });
-    }
-
-    contents.push({ role: "user", parts: currentParts });
-
-    // Carrega o novo system prompt (sem argumento)
+    // Carrega o system prompt
     const { getEltonSystemPrompt } = await import("@/lib/elton/system");
     const systemPrompt = getEltonSystemPrompt();
 
-    // Chama Gemini com temperatura 0.3 (mais determinístico)
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY || ""}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          generationConfig: { maxOutputTokens: 1024, temperature: 0.3 },
-        }),
-      }
-    );
+    // Monta mensagens no formato OpenAI
+    const oaMessages: Array<{ role: string; content: unknown }> = [
+      { role: "system", content: systemPrompt },
+      ...(history as Array<{ role: string; content: string }>).map((msg) => ({
+        role: msg.role === "elton" || msg.role === "assistant" ? "assistant" : "user",
+        content: msg.content,
+      })),
+    ];
+
+    // Mensagem atual (com ou sem imagem)
+    if (image && typeof image === "string") {
+      const dataUrl = image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
+      oaMessages.push({
+        role: "user",
+        content: [
+          { type: "text", text: message },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      });
+    } else {
+      oaMessages.push({ role: "user", content: message });
+    }
+
+    // Chama OpenAI gpt-4o-mini
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: oaMessages,
+        max_tokens: 1024,
+        temperature: 0.7,
+      }),
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Gemini Error:", errText);
+      console.error("OpenAI Error:", errText);
       return NextResponse.json(
         { error: `API Error: ${response.status}` },
         { status: 500 }
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text as string;
+    const reply = data.choices?.[0]?.message?.content as string;
 
     // Limpeza simplificada: remove tags [CARD_*]
     const cleanReply = reply
