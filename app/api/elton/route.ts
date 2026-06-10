@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
         authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: oaMessages,
-        max_tokens: 1024,
-        temperature: 0.7,
+        max_completion_tokens: 1024,
+        reasoning_effort: "minimal",
       }),
     });
 
