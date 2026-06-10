@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     // Carrega o system prompt
     const { getEltonSystemPrompt } = await import("@/lib/elton/system");
-    const systemPrompt = getEltonSystemPrompt();
+    const systemPrompt = getEltonSystemPrompt(199);
 
     // Monta mensagens no formato OpenAI
     const oaMessages: Array<{ role: string; content: unknown }> = [
