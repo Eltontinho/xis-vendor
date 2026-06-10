@@ -84,7 +84,6 @@ export default function Home() {
   };
 
   const cardQuestions: Record<string, string> = {
-    "/cards/cardk-rrofundopreto.png": "O que te chamou mais atenção na proposta da K-RRO?",
     "/cards/clube-todos.png": "Qual benefício do Clube te parece mais interessante?",
     "/cards/clube-platina.jpg": "Você se vê aproveitando esses benefícios no seu dia a dia?",
   };
@@ -199,8 +198,7 @@ export default function Home() {
       // Card
       if (data.card?.type && !cardsShown.has(data.card.type)) {
         setCardsShown(prev => new Set(prev).add(data.card.type));
-        const cardImg = data.card.type === "apresentacao" ? "/cards/cardk-rrofundopreto.png"
-          : data.card.type === "clube" ? "/cards/clube-todos.png"
+        const cardImg = data.card.type === "clube" ? "/cards/clube-todos.png"
           : "/cards/clube-platina.jpg";
         await new Promise(r => setTimeout(r, 1500));
         setMessages(prev => [...prev, { id: (Date.now() + 2).toString(), role: "elton", content: "", timestamp: Date.now(), cardType: cardImg }]);

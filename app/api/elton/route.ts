@@ -68,13 +68,8 @@ export async function POST(req: NextRequest) {
 
     // Detecta cards
     let cardObj: { type: string } | null = null;
-    const isFirstMessage = (history || []).filter((m: { role: string }) => m.role === "user").length === 1;
 
-    if (isFirstMessage) {
-      cardObj = { type: "apresentacao" };
-    } else if (reply.includes("[CARD_APRESENTACAO]")) {
-      cardObj = { type: "apresentacao" };
-    } else if (reply.includes("[CARD_CLUBE]")) {
+    if (reply.includes("[CARD_CLUBE]")) {
       cardObj = { type: "clube" };
     } else if (reply.includes("[CARD_PAGAMENTO]")) {
       cardObj = { type: "pagamento" };
