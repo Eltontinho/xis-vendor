@@ -333,7 +333,7 @@ export default function Home() {
     {fullscreenCard && (
       <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={handleCloseCard}>
         <button
-          onClick={handleCloseCard}
+          onClick={(e) => { e.stopPropagation(); handleCloseCard(); }}
           className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl flex items-center justify-center hover:bg-gray-700 z-10"
         >×</button>
         <img
