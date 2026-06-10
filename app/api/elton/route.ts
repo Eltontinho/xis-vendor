@@ -60,9 +60,10 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content as string;
 
-    // Limpeza simplificada: remove tags [CARD_*]
+    // Remove tags [CARD_*] e frases duplicadas que o frontend já exibe no card
     const cleanReply = reply
       .replace(/\[CARD_[A-Z_:=|0-9.]+\]/g, "")
+      .replace(/[^\n]*(?:chamou aten|viu até agora|viu ate agora|faz sentido pra voc|o que achou)[^\n]*/gi, "")
       .trim();
 
     // Detecta cards
@@ -172,10 +173,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Fragmenta resposta: split por newlines, filtra vazias
-    const fragments = cleanReply
+    let fragments = cleanReply
       .split(/\n+/)
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
+
+    // Quando um card foi emitido, remove linhas que repetem a pergunta do card
+    if (cardObj) {
+      fragments = fragments.filter(
+        (f) => !/o que te chamou|qual benefício|qual dessas opções/i.test(f)
+      );
+    }
 
     // Adiciona número de pré-cadastro se gerado
     if (registrationNumber) {
