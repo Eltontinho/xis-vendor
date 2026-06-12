@@ -167,9 +167,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fragmenta resposta: split por newlines, filtra vazias
+    // Fragmenta resposta: primeiro por \n+, depois por sentença dentro de cada parágrafo
+    // Lookahead em maiúscula/aspas evita quebrar abreviações como R$, ex:, nº
+    const SENTENCE_SPLIT = /(?<=[.!?])\s+(?=[A-ZÀ-Ú"])/;
     let fragments = cleanReply
       .split(/\n+/)
+      .flatMap((para) => para.split(SENTENCE_SPLIT))
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
 
