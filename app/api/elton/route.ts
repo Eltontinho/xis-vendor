@@ -66,16 +66,16 @@ export async function POST(req: NextRequest) {
 
     // Remove tags [CARD_*] e frases duplicadas que o frontend já exibe no card
     const cleanReply = reply
-      .replace(/\[CARD_[A-Z_:=|0-9.]+\]/g, "")
+      .replace(/\[CARD_[A-Za-z_:=|0-9.]+\]/gi, "")
       .replace(/[^\n]*(?:chamou aten|viu até agora|viu ate agora|faz sentido pra voc|o que achou)[^\n]*/gi, "")
       .trim();
 
-    // Detecta cards
+    // Detecta cards (case-insensitive para robustez com variações do modelo)
     let cardObj: { type: string } | null = null;
 
-    if (reply.includes("[CARD_CLUBE]")) {
+    if (/\[CARD_CLUBE\]/i.test(reply)) {
       cardObj = { type: "clube" };
-    } else if (reply.includes("[CARD_PAGAMENTO]")) {
+    } else if (/\[CARD_PAGAMENTO\]/i.test(reply)) {
       cardObj = { type: "pagamento" };
     }
 
