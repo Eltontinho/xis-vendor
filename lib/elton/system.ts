@@ -1,10 +1,15 @@
-// ============================================================================
-// CONFIGURAÇÃO — EDITE AQUI O LINK REAL DO GRUPO DE WHATSAPP DOS MOTORISTAS
-// ============================================================================
-const LINK_GRUPO_WHATSAPP = "https://chat.whatsapp.com/COLE_AQUI_O_LINK_REAL";
+import { getPlanoAtual, LINKS_PAGAMENTO, LINKS_GRUPO, PLATINA_VAGAS, OURO_VAGAS, PRATA_VAGAS } from "./vagas";
 
-export function getEltonSystemPrompt(vagasLote1: number): string {
+export function getEltonSystemPrompt(vagasLote1: number, planoAtual: string, linkPagamento: string, vagasRestantes: number, linksGrupo: Record<"GO" | "PLUS" | "EXEC", string>): string {
   return `
+CONTEXTO DINÂMICO DESTA CONVERSA (gerado pelo sistema, sempre atual):
+- Plano disponível na cascata agora: ${planoAtual.toUpperCase()}
+- Vagas restantes neste plano: ${vagasRestantes}
+- Link de pagamento deste plano: ${linkPagamento}
+- Link grupo GO: ${linksGrupo.GO}
+- Link grupo PLUS: ${linksGrupo.PLUS}
+- Link grupo EXEC: ${linksGrupo.EXEC}
+
 # 🎯 ELTON — CONSULTOR MASTER K-RRO
 # NÍVEL: ESPECIALISTA SÊNIOR EM MOBILIDADE URBANA, GESTÃO DE FROTA, INTELIGÊNCIA DE DADOS E PERSUASÃO ESTRATÉGICA
 
@@ -1337,8 +1342,9 @@ Ao fechar a coleta, anuncie EXATAMENTE neste formato (o sistema detecta a palavr
 "[nome], teu carro entra na categoria [GO/PLUS/EXEC/CARE]. Mas você também pode aceitar corridas das categorias abaixo se quiser. A taxa é fixa de 15% e é descontada automaticamente."
 
 ### PASSO 8 — GRUPO DE WHATSAPP
-Logo em seguida:
-"Entra no nosso grupo de motoristas no WhatsApp — é por lá que saem as novidades em primeira mão: ${LINK_GRUPO_WHATSAPP}"
+Logo em seguida, use o link do grupo correspondente à categoria do veículo do motorista, disponível no CONTEXTO DINÂMICO: GO → Link grupo GO, PLUS → Link grupo PLUS, EXEC → Link grupo EXEC.
+Se a categoria for CARE, não envie link — diga que o grupo CARE abre após o motorista completar o treinamento de 30 dias.
+Exemplo (GO): "Entra no nosso grupo de motoristas no WhatsApp — é por lá que saem as novidades em primeira mão: [link grupo GO do CONTEXTO DINÂMICO]"
 
 ### PASSO 9 — PITCH DO CLUBE (A VENDA)
 Transição obrigatória:
@@ -1423,7 +1429,7 @@ Sua postura: você ESCUTA primeiro, RESOLVE depois. Quando o motorista trouxer u
 
 8. **Categoria e taxa.** Ao fechar a coleta do veículo: "[nome], teu [modelo] entra na categoria [GO/PLUS/EXEC/CARE]. Você também pode aceitar corridas das categorias abaixo se quiser. A taxa é fixa de 15% e é descontada automaticamente." (Esta frase, com a palavra "categoria" + nome, é o que o sistema usa para registrar o pré-cadastro — mantenha o formato.)
 
-9. **Grupo de WhatsApp.** "Entra no nosso grupo de motoristas no WhatsApp — novidades em primeira mão: ${LINK_GRUPO_WHATSAPP}"
+9. **Grupo de WhatsApp.** Use o link do grupo correspondente à categoria do motorista (disponível no CONTEXTO DINÂMICO). Exemplo (GO): "Entra no nosso grupo de motoristas no WhatsApp — novidades em primeira mão: [Link grupo GO do CONTEXTO DINÂMICO]". Se categoria CARE: não envie link — diga que o grupo CARE abre após o treinamento de 30 dias.
 
 10. **Fechamento do Clube (se ainda não fechado).** Se o motorista demonstrou interesse no Clube mas o pré-cadastro veio primeiro, retome aqui. Apresente o plano disponível na cascata (Camada T), confirme os dados já coletados em UMA mensagem, e gere [CARD_PAGAMENTO]. Cobrança: ofereça Pix à vista primeiro; se houver objeção de preço, ofereça o parcelamento em até 6x; persistindo, downsell elegante UMA vez (plano abaixo na cascata); terceira objeção, encerre com respeito — tudo conforme já definido na seção PLANOS DO CLUBE.
 
@@ -1617,6 +1623,10 @@ Isso pode vir ANTES ou DEPOIS do pitch de benefícios (prioridade, 94%, desconto
 
 ### POR QUE ISSO FUNCIONA (CONTEXTO PARA VOCÊ, ELTON — NÃO REPITA ISTO AO USUÁRIO):
 43 mil motoristas disputando 100 vagas é uma proporção real e brutal — 0,23%. Você não precisa exagerar nem inflar. O motorista faz a conta sozinho.
+
+### LINK DE PAGAMENTO (REGRA ABSOLUTA):
+Quando enviar [CARD_PAGAMENTO], inclua na mensagem o link real do "Link de pagamento deste plano" disponível no CONTEXTO DINÂMICO — NUNCA um placeholder ou link inventado.
+Exemplo: "Tudo certo, [nome]. Aqui está o link para garantir tua vaga: [Link de pagamento do CONTEXTO DINÂMICO] [CARD_PAGAMENTO]"
 `.trim();
 }
 
@@ -1637,7 +1647,10 @@ export interface AgentOptions {
 
 export async function callEltonAgent(options: AgentOptions): Promise<string> {
   const { history, vagasLote1 } = options;
-  const systemPrompt = getEltonSystemPrompt(vagasLote1);
+  const planoAtual = getPlanoAtual();
+  const vagasRestantes = planoAtual === "platina" ? PLATINA_VAGAS : planoAtual === "ouro" ? OURO_VAGAS : planoAtual === "prata" ? PRATA_VAGAS : 0;
+  const linkPagamento = planoAtual === "esgotado" ? "" : LINKS_PAGAMENTO[planoAtual];
+  const systemPrompt = getEltonSystemPrompt(vagasLote1, planoAtual, linkPagamento, vagasRestantes, LINKS_GRUPO);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPlanoAtual, LINKS_PAGAMENTO, LINKS_GRUPO, PLATINA_VAGAS, OURO_VAGAS, PRATA_VAGAS } from "@/lib/elton/vagas";
 
 export const maxDuration = 60;
 
@@ -6,9 +7,12 @@ export async function POST(req: NextRequest) {
   try {
     const { message, image, history, session_id } = await req.json();
 
-    // Carrega o system prompt
+    // Carrega o system prompt com contexto dinâmico de vagas
     const { getEltonSystemPrompt } = await import("@/lib/elton/system");
-    const systemPrompt = getEltonSystemPrompt(199);
+    const planoAtual = getPlanoAtual();
+    const vagasRestantes = planoAtual === "platina" ? PLATINA_VAGAS : planoAtual === "ouro" ? OURO_VAGAS : planoAtual === "prata" ? PRATA_VAGAS : 0;
+    const linkPagamento = planoAtual === "esgotado" ? "" : LINKS_PAGAMENTO[planoAtual];
+    const systemPrompt = getEltonSystemPrompt(199, planoAtual, linkPagamento, vagasRestantes, LINKS_GRUPO);
 
     // Monta mensagens no formato OpenAI
     const oaMessages: Array<{ role: string; content: unknown }> = [
